@@ -42,6 +42,7 @@ let g:notmuch_show_maps = {
 	\ 'u':		'show_open_uri()',
 	\ 'r':		'show_reply()',
 	\ '?':		'show_info()',
+	\ '<S-Tab>':	'show_prev_msg()',
 	\ '<Tab>':	'show_next_msg()',
 	\ 'c':		'compose("")',
 	\ }
@@ -120,6 +121,22 @@ EOF
 	call s:kill_this_buffer()
 endfunction
 
+function! s:show_prev_msg()
+ruby << EOF
+	r, c = $curwin.cursor
+	n = $curbuf.line_number
+	i = $messages.index { |m| n >= m.start && n <= m.end }
+	m = $messages[i - 1] if i > 0
+	vim_puts ("messages index is #{i} and m is #{m}")
+	if m
+		r = m.body_start + 1
+		scrolloff = VIM::evaluate("&scrolloff")
+		VIM::command("normal #{m.start + scrolloff}zt")
+		$curwin.cursor = r + scrolloff, c
+	end
+EOF
+endfunction
+
 function! s:show_next_msg()
 ruby << EOF
 	r, c = $curwin.cursor
@@ -128,8 +145,9 @@ ruby << EOF
 	m = $messages[i + 1]
 	if m
 		r = m.body_start + 1
-		VIM::command("normal #{m.start}zt")
-		$curwin.cursor = r, c
+		scrolloff = VIM::evaluate("&scrolloff")
+		VIM::command("normal #{m.start + scrolloff}zt")
+		$curwin.cursor = r + scrolloff, c
 	end
 EOF
 endfunction
