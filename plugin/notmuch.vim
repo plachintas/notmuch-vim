@@ -11,6 +11,7 @@ let g:loaded_notmuch = "yep"
 let g:notmuch_folders_maps = {
 	\ '<Enter>':	'folders_show_search()',
 	\ 's':		'folders_search_prompt()',
+	\ 'A':		'folders_tag_all("-inbox -unread")',
 	\ '=':		'folders_refresh()',
 	\ 'c':		'compose()',
 	\ }
@@ -387,6 +388,16 @@ ruby << EOF
 	s = $searches[n - 1]
 	VIM::command("call s:search('#{s}')")
 EOF
+endfunction
+
+function! s:folders_tag_all(tags)
+ruby << EOF
+	n = $curbuf.line_number
+	s = $searches[n - 1]
+	t = VIM::evaluate('a:tags')
+	do_tag(s, t)
+EOF
+	call s:folders_refresh()
 endfunction
 
 function! s:folders()
