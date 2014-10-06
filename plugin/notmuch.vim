@@ -64,6 +64,7 @@ let s:notmuch_reader_default = 'mutt -f %s'
 let s:notmuch_sendmail_default = 'sendmail'
 let s:notmuch_view_attachment_default = 'xdg-open'
 let s:notmuch_attachment_tmpdir_default = '~/.notmuch/tmp'
+let s:notmuch_save_sent_locally_default = 1
 let s:notmuch_folders_count_threads_default = 0
 let s:notmuch_compose_start_insert_default = 1
 let s:notmuch_open_uri_default = 'xdg-open'
@@ -115,6 +116,18 @@ EOF
 		echo out
 		echohl None
 		return
+	endif
+
+	if g:notmuch_save_sent_locally
+		let out = system('cat ' . fname . ' | notmuch insert --create-folder --folder=Sent +sent -unread -inbox')
+		let err = v:shell_error
+		if err
+			echohl Error
+			echo 'Eeek! unable to save sent mail'
+			echo out
+			echohl None
+			return
+		endif
 	endif
 	call delete(fname)
 	echo 'Mail sent successfully.'
@@ -520,6 +533,10 @@ endfunction
 "" root
 
 function! s:set_defaults()
+	if !exists('g:notmuch_save_sent_locally')
+		let g:notmuch_save_sent_locally = s:notmuch_save_sent_locally_default
+	endif
+
 	if !exists('g:notmuch_date_format')
 		if exists('g:notmuch_rb_date_format')
 			let g:notmuch_date_format = g:notmuch_rb_date_format
