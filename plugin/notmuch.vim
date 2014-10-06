@@ -389,6 +389,9 @@ function! s:folders()
 	ruby folders_render()
 	call s:set_menu_buffer()
 	call s:set_map(g:notmuch_folders_maps)
+	autocmd BufEnter,WinEnter,BufWinEnter <buffer>
+		    \ call s:folders_refresh()
+	augroup END
 endfunction
 
 "" root
