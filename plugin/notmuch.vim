@@ -506,7 +506,9 @@ function! s:folders_show_search()
 ruby << EOF
 	n = $curbuf.line_number
 	s = $searches[n - 1]
-	VIM::command("call s:search('#{s}')")
+	if s.length > 0
+		VIM::command("call s:search('#{s}')")
+	end
 EOF
 endfunction
 
@@ -838,11 +840,21 @@ ruby << EOF
 			folders = VIM::evaluate('g:notmuch_folders')
 			count_threads = VIM::evaluate('g:notmuch_folders_count_threads') == 1
 			$searches.clear
+			longest_name = 0
+			folders.each do |name, search|
+				if name.length > longest_name
+					longest_name = name.length
+				end
+			end
 			folders.each do |name, search|
 				q = $curbuf.query(search)
 				$searches << search
 				count = count_threads ? q.search_threads.count : q.search_messages.count
-				b << "%9d %-20s (%s)" % [count, name, search]
+				if name == ''
+					b << ""
+				else
+					b << "%9d %-#{longest_name + 1}s (%s)" % [count, name, search]
+				end
 			end
 		end
 	end
