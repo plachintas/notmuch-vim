@@ -182,12 +182,18 @@ ruby << EOF
 	q = $curbuf.query($cur_thread)
 	t = q.search_threads.first
 	n = 0
-	t.toplevel_messages.first.replies.each do |m|
-		next if not m['subject'] =~ /^\[PATCH.*\]/
-		file = "%04d.patch" % [n += 1]
+	t.messages.each do |m|
+		next if not m['subject'] =~ /\[PATCH.*\]/
+		next if m['subject'] =~ /^Re:/
+		file = "#{m['subject']}-%04d.patch" % [n += 1]
+		# Sanitize for the filesystem
+		file.gsub!(/[^0-9A-Za-z.\-]/, '_')
+		# Remove leading underscores.
+		file.gsub!(/^_+/, '')
+		vim_puts "Saving patch to #{file}"
 		system "notmuch show --format=mbox id:#{m.message_id} > #{file}"
 	end
-	vim_puts "Saved #{n} patches"
+	vim_puts "Saved #{n} patch(es)"
 EOF
 endfunction
 
