@@ -13,7 +13,7 @@ let g:notmuch_folders_maps = {
 	\ 's':		'folders_search_prompt()',
 	\ 'A':		'folders_tag_all("-inbox -unread")',
 	\ '=':		'folders_refresh()',
-	\ 'c':		'compose()',
+	\ 'c':		'compose("")',
 	\ }
 
 let g:notmuch_search_maps = {
@@ -26,7 +26,7 @@ let g:notmuch_search_maps = {
 	\ 's':		'search_search_prompt()',
 	\ '=':		'search_refresh()',
 	\ '?':		'search_info()',
-	\ 'c':		'compose()',
+	\ 'c':		'compose("")',
 	\ }
 
 let g:notmuch_show_maps = {
@@ -39,10 +39,11 @@ let g:notmuch_show_maps = {
 	\ 'v':		'show_view_attachment()',
 	\ 's':		'show_save_msg()',
 	\ 'p':		'show_save_patches()',
+	\ 'u':		'show_open_uri()',
 	\ 'r':		'show_reply()',
 	\ '?':		'show_info()',
 	\ '<Tab>':	'show_next_msg()',
-	\ 'c':		'compose()',
+	\ 'c':		'compose("")',
 	\ }
 
 let g:notmuch_compose_maps = {
@@ -64,6 +65,7 @@ let s:notmuch_view_attachment_default = 'xdg-open'
 let s:notmuch_attachment_tmpdir_default = '~/.notmuch/tmp'
 let s:notmuch_folders_count_threads_default = 0
 let s:notmuch_compose_start_insert_default = 1
+let s:notmuch_open_uri_default = 'xdg-open'
 
 function! s:new_file_buffer(type, fname)
 	exec printf('edit %s', a:fname)
@@ -142,8 +144,8 @@ function! s:show_reply()
 	end
 endfunction
 
-function! s:compose()
-	ruby open_compose
+function! s:compose(to_email)
+	ruby open_compose(VIM::evaluate('a:to_email'))
 	let b:compose_done = 0
 	call s:set_map(g:notmuch_compose_maps)
 	autocmd BufDelete <buffer> call s:on_compose_delete()
@@ -204,6 +206,45 @@ ruby << EOF
 				vim_puts "Extracted #{a.filename}"
 			end
 		end
+	end
+EOF
+endfunction
+
+function! s:show_open_uri()
+	let line = getline(".")
+	let pos = getpos(".")
+	let col = pos[2]
+ruby << EOF
+	m = get_message
+	line = VIM::evaluate('line')
+	col = VIM::evaluate('col') - 1
+	uris = URI.extract(line)
+	wanted_uri = nil
+	if uris.length == 1
+		wanted_uri = uris[0]
+	else
+		uris.each do |uri|
+			# Check to see the URI is at the present cursor location
+			idx = line.index(uri)
+			if col >= idx and col <= idx + uri.length
+				wanted_uri = uri
+				break
+			end
+		end
+	end
+
+	if wanted_uri
+		uri = URI.parse(wanted_uri)
+		if uri.class == URI::MailTo
+			vim_puts("Composing new email to #{uri.to}.")
+			VIM::command("call s:compose('#{uri.to}')")
+		else
+			vim_puts("Opening #{uri.to_s}.")
+			cmd = VIM::evaluate('g:notmuch_open_uri')
+			system(cmd, uri.to_s)
+		end
+	else
+		vim_puts('URI not found.')
 	end
 EOF
 endfunction
@@ -477,6 +518,10 @@ function! s:set_defaults()
 		endif
 	endif
 
+	if !exists('g:notmuch_open_uri')
+		let g:notmuch_open_uri = s:notmuch_open_uri_default
+	endif
+
 	if !exists('g:notmuch_reader')
 		if exists('g:notmuch_rb_reader')
 			let g:notmuch_reader = g:notmuch_rb_reader
@@ -696,11 +741,11 @@ ruby << EOF
 		open_compose_helper(lines, cur)
 	end
 
-	def open_compose()
+	def open_compose(to_email)
 		lines = []
 
 		lines << "From: #{$email}"
-		lines << "To: "
+		lines << "To: #{to_email}"
 		cur = lines.count
 
 		lines << "Cc: "

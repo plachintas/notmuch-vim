@@ -75,6 +75,7 @@ t	Tag (prompted)
 e       Extract attachment on the current 'Attachment' line or all
 	attachments if the cursor is elsewhere.
 v       View attachment on the current 'Attachment' line.
+u	Open URI
 s	Search
 p	Save patches
 r	Reply
