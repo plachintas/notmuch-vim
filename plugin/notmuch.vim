@@ -36,10 +36,9 @@ let g:notmuch_show_maps = {
 	\ 't':		'show_tag("")',
 	\ 'o':		'show_open_msg()',
 	\ 'e':		'show_extract_msg()',
-	\ 'v':		'show_view_attachment()',
+	\ '<Enter>':	'show_view_magic()',
 	\ 's':		'show_save_msg()',
 	\ 'p':		'show_save_patches()',
-	\ 'u':		'show_open_uri()',
 	\ 'r':		'show_reply()',
 	\ '?':		'show_info()',
 	\ '<S-Tab>':	'show_prev_msg()',
@@ -58,6 +57,14 @@ let s:notmuch_folders_default = [
 	\ [ 'unread', 'tag:unread' ],
 	\ ]
 
+let s:notmuch_show_headers_default = [
+	\ 'Subject',
+	\ 'To',
+	\ 'Cc',
+	\ 'Date',
+	\ 'Message-ID',
+	\ ]
+
 let s:notmuch_date_format_default = '%d.%m.%y'
 let s:notmuch_datetime_format_default = '%d.%m.%y %H:%M:%S'
 let s:notmuch_reader_default = 'mutt -f %s'
@@ -65,8 +72,11 @@ let s:notmuch_sendmail_default = 'sendmail'
 let s:notmuch_view_attachment_default = 'xdg-open'
 let s:notmuch_attachment_tmpdir_default = '~/.notmuch/tmp'
 let s:notmuch_save_sent_locally_default = 1
+let s:notmuch_save_sent_mailbox_default = 'Sent'
 let s:notmuch_folders_count_threads_default = 0
 let s:notmuch_compose_start_insert_default = 1
+let s:notmuch_show_folded_full_headers_default = 1
+let s:notmuch_show_folded_threads_default = 1
 let s:notmuch_open_uri_default = 'xdg-open'
 
 function! s:new_file_buffer(type, fname)
@@ -119,7 +129,7 @@ EOF
 	endif
 
 	if g:notmuch_save_sent_locally
-		let out = system('cat ' . fname . ' | notmuch insert --create-folder --folder=Sent +sent -unread -inbox')
+		let out = system('notmuch insert --create-folder --folder=' . g:notmuch_save_sent_mailbox . ' +sent -unread -inbox < ' . fname)
 		let err = v:shell_error
 		if err
 			echohl Error
@@ -140,7 +150,6 @@ ruby << EOF
 	n = $curbuf.line_number
 	i = $messages.index { |m| n >= m.start && n <= m.end }
 	m = $messages[i - 1] if i > 0
-	vim_puts ("messages index is #{i} and m is #{m}")
 	if m
 		r = m.body_start + 1
 		scrolloff = VIM::evaluate("&scrolloff")
@@ -189,24 +198,59 @@ function! s:show_info()
 	ruby vim_puts get_message.inspect
 endfunction
 
+function! s:show_view_magic()
+	let line = getline(".")
+
+ruby << EOF
+	line = VIM::evaluate('line')
+
+	# Easiest to check for 'Part' types first..
+	match = line.match(/^Part (\d*):/)
+	if match and match.length == 2
+		VIM::command('call s:show_view_attachment()')
+	else
+		VIM::command('call s:show_open_uri()')
+	end
+EOF
+endfunction
+
 function! s:show_view_attachment()
 	let line = getline(".")
 ruby << EOF
 	m = get_message
 	line = VIM::evaluate('line')
 
-	match = line.match(/^Attachment (\d*):/)
+	match = line.match(/^Part (\d*):/)
 	if match and match.length == 2
-		a = m.mail.attachments[match[1].to_i - 1]
+		# Set up the tmpdir
 		tmpdir = VIM::evaluate('g:notmuch_attachment_tmpdir')
 		tmpdir = File.expand_path(tmpdir)
 		Dir.mkdir(tmpdir) unless Dir.exists?(tmpdir)
-		filename = File.expand_path("#{tmpdir}/#{a.filename}")
-		vim_puts "Viewing attachment #{filename}"
-		File.open(filename, 'w') do |f|
-			f.write a.body.decoded
+
+		p = m.mail.parts[match[1].to_i - 1]
+		if p == nil
+			# Not a multipart message, use the message itself.
+			p = m.mail
+		end
+		if p.filename and p.filename.length > 0
+			filename = p.filename
+		else
+			suffix = ''
+			if p.mime_type == 'text/html'
+				suffix = '.html'
+			end
+			filename = "part-#{match[1]}#{suffix}"
+		end
+
+		# Sanitize just in case..
+		filename.gsub!(/[^0-9A-Za-z.\-]/, '_')
+
+		fullpath = File.expand_path("#{tmpdir}/#{filename}")
+		vim_puts "Viewing attachment #{fullpath}"
+		File.open(fullpath, 'w') do |f|
+			f.write p.body.decoded
 			cmd = VIM::evaluate('g:notmuch_view_attachment')
-			system(cmd, filename)
+			system(cmd, fullpath)
 		end
 	else
 		vim_puts "No attachment on this line."
@@ -220,11 +264,11 @@ ruby << EOF
 	m = get_message
 	line = VIM::evaluate('line')
 
-	# If the user is on a line that has an 'Attachment'
+	# If the user is on a line that has an 'Part'
 	# line, we just extract the one attachment.
-	match = line.match(/^Attachment (\d*):/)
+	match = line.match(/^Part (\d*):/)
 	if match and match.length == 2
-		a = m.mail.attachments[match[1].to_i - 1]
+		a = m.mail.parts[match[1].to_i - 1]
 		File.open(a.filename, 'w') do |f|
 			f.write a.body.decoded
 			vim_puts "Extracted #{a.filename}"
@@ -299,22 +343,32 @@ EOF
 endfunction
 
 function! s:show_save_patches()
+	let dir = input('Save to directory: ', getcwd(), 'dir')
 ruby << EOF
-	q = $curbuf.query($cur_thread)
-	t = q.search_threads.first
-	n = 0
-	t.messages.each do |m|
-		next if not m['subject'] =~ /\[PATCH.*\]/
-		next if m['subject'] =~ /^Re:/
-		file = "#{m['subject']}-%04d.patch" % [n += 1]
-		# Sanitize for the filesystem
-		file.gsub!(/[^0-9A-Za-z.\-]/, '_')
-		# Remove leading underscores.
-		file.gsub!(/^_+/, '')
-		vim_puts "Saving patch to #{file}"
-		system "notmuch show --format=mbox id:#{m.message_id} > #{file}"
+	dir = VIM::evaluate('dir')
+	if File.exists?(dir)
+		q = $curbuf.query($cur_thread)
+		t = q.search_threads.first
+		n = 0
+		m = get_message
+		t.messages.each do |m|
+			next if not m['subject'] =~ /\[PATCH.*\]/
+			next if m['subject'] =~ /^Re:/
+			subject = m['subject']
+			# Sanitize for the filesystem
+			subject.gsub!(/[^0-9A-Za-z.\-]/, '_')
+			# Remove leading underscores.
+			subject.gsub!(/^_+/, '')
+			# git style numbered patchset format.
+			file = "#{dir}/%04d-#{subject}.patch" % [n += 1]
+			vim_puts "Saving patch to #{file}"
+			system "notmuch show --format=mbox id:#{m.message_id} > #{file}"
+		end
+		vim_puts "Saved #{n} patch(es)"
+	else
+		VIM::command('redraw')
+		vim_puts "ERROR: Invalid directory: #{dir}"
 	end
-	vim_puts "Saved #{n} patch(es)"
 EOF
 endfunction
 
@@ -433,6 +487,9 @@ function! s:show(thread_id)
 	call s:new_buffer('show')
 	setlocal modifiable
 ruby << EOF
+	show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers')
+	show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
+
 	thread_id = VIM::evaluate('a:thread_id')
 	$cur_thread = thread_id
 	$messages.clear
@@ -448,15 +505,31 @@ ruby << EOF
 			date_fmt = VIM::evaluate('g:notmuch_datetime_format')
 			date = Time.at(msg.date).strftime(date_fmt)
 			nm_m.start = b.count
-			b << "%s %s (%s)" % [msg['from'], date, msg.tags]
-			b << "Subject: %s" % [msg['subject']]
-			b << "To: %s" % msg['to']
-			b << "Cc: %s" % msg['cc']
-			b << "Date: %s" % msg['date']
+			b << "From: %s %s (%s)" % [msg['from'], date, msg.tags]
+			showheaders = VIM::evaluate('g:notmuch_show_headers')
+			showheaders.each do |h|
+				b << "%s: %s" % [h, m.header[h]]
+			end
+			if show_full_headers
+				# Now show the rest in a folded area.
+				nm_m.full_header_start = b.count
+				m.header.fields.each do |k|
+					# Only show the ones we haven't already printed out.
+					if not showheaders.include?(k.name)
+					    b << '%s: %s' % [k.name, k.to_s]
+					end
+				end
+				nm_m.full_header_end = b.count
+			end
 			cnt = 0
-			nm_m.mail.attachments.each do |a|
+			m.parts.each do |p|
 				cnt += 1
-				b << "Attachment %d: %s" % [cnt, a.filename]
+				b << "Part %d: %s (%s)" % [cnt, p.mime_type, p.filename]
+			end
+			# Add a special case for text/html messages.  Here we show the
+			# only 'part' so that we can view it in a web browser if we want.
+			if m.parts.length == 0 and part.mime_type == 'text/html'
+				b << "Part 1: text/html"
 			end
 			nm_m.body_start = b.count
 			b << "--- %s ---" % part.mime_type
@@ -470,11 +543,19 @@ ruby << EOF
 	end
 	$messages.each_with_index do |msg, i|
 		VIM::command("syntax region nmShowMsg#{i}Desc start='\\%%%il' end='\\%%%il' contains=@nmShowMsgDesc" % [msg.start, msg.start + 1])
-		VIM::command("syntax region nmShowMsg#{i}Head start='\\%%%il' end='\\%%%il' contains=@nmShowMsgHead" % [msg.start + 1, msg.body_start])
+		VIM::command("syntax region nmShowMsg#{i}Head start='\\%%%il' end='\\%%%il' contains=@nmShowMsgHead" % [msg.start + 1, msg.full_header_start])
 		VIM::command("syntax region nmShowMsg#{i}Body start='\\%%%il' end='\\%%%dl' contains=@nmShowMsgBody" % [msg.body_start, msg.end])
+		if show_full_headers
+			VIM::command("syntax region nmFold#{i}Headers start='\\%%%il' end='\\%%%il' fold transparent contains=@nmShowMsgHead" % [msg.full_header_start, msg.full_header_end])
+		end
+		# Only fold the whole message if there are multiple emails in this thread.
+		if $messages.count > 1 and show_threads_folded
+			VIM::command("syntax region nmShowMsgFold#{i} start='\\%%%il' end='\\%%%il' fold transparent contains=ALL" % [msg.start, msg.end])
+		end
 	end
 EOF
 	setlocal nomodifiable
+	setlocal foldmethod=syntax
 	call s:set_map(g:notmuch_show_maps)
 endfunction
 
@@ -537,6 +618,10 @@ endfunction
 function! s:set_defaults()
 	if !exists('g:notmuch_save_sent_locally')
 		let g:notmuch_save_sent_locally = s:notmuch_save_sent_locally_default
+	endif
+
+	if !exists('g:notmuch_save_sent_mailbox')
+		let g:notmuch_save_sent_mailbox = s:notmuch_save_sent_mailbox_default
 	endif
 
 	if !exists('g:notmuch_date_format')
@@ -618,6 +703,19 @@ function! s:set_defaults()
 			let g:notmuch_folders = s:notmuch_folders_default
 		endif
 	endif
+
+	if !exists('g:notmuch_show_headers')
+		let g:notmuch_show_headers = s:notmuch_show_headers_default
+	endif
+
+	if !exists('g:notmuch_show_folded_threads')
+		let g:notmuch_show_folded_threads = s:notmuch_show_folded_threads_default
+	endif
+
+	if !exists('g:notmuch_show_folded_full_headers')
+		let g:notmuch_show_folded_full_headers = s:notmuch_show_folded_full_headers_default
+	endif
+
 endfunction
 
 function! s:NotMuch(...)
@@ -634,7 +732,6 @@ ruby << EOF
 	end
 
 	$db_name = nil
-	$all_emails = []
 	$email = $email_name = $email_address = nil
 	$searches = []
 	$threads = []
@@ -653,14 +750,8 @@ ruby << EOF
 		$db_name = get_config_item('database.path')
 		$email_name = get_config_item('user.name')
 		$email_address = get_config_item('user.primary_email')
-		$secondary_email_addresses = get_config_item('user.primary_email')
 		$email_name = get_config_item('user.name')
 		$email = "%s <%s>" % [$email_name, $email_address]
-		other_emails = get_config_item('user.other_email')
-		$all_emails = other_emails.split("\n")
-		# Add the primary to this too as we use it for checking
-		# addresses when doing a reply
-		$all_emails.unshift($email_address)
 	end
 
 	def vim_puts(s)
@@ -736,54 +827,14 @@ ruby << EOF
 		end
 	end
 
-	def is_our_address(address)
-		$all_emails.each do |addy|
-			if address.to_s.index(addy) != nil
-				return addy
-			end
-		end
-		return nil
-	end
-
 	def open_reply(orig)
 		reply = orig.reply do |m|
-			m.cc = []
-			email_addr = $email_address
-			# Append addresses to the new to: from the original from:
-			# so long as they are not ours.
-			if orig[:from]
-				orig[:from].each do |o|
-					if not is_our_address(o)
-						m.to << o
-					end
-				end
+			# fix headers
+			if not m[:reply_to]
+				m.to = [orig[:from].to_s, orig[:to].to_s]
 			end
-			# This copies the cc list to the new email while
-			# stripping out our own addresses and sets the from:
-			# address to ours if it finds one.
-			if orig[:cc]
-				orig[:cc].each do |o|
-					if is_our_address(o)
-						email_addr = is_our_address(o)
-					else
-						m.cc << o
-					end
-				end
-			end
-			# This copies the to list to the new email while
-			# stripping out our own addresses and sets the from:
-			# address to ours if it finds one.
-			if orig[:to]
-				orig[:to].each do |o|
-					if is_our_address(o)
-						email_addr = is_our_address(o)
-					else
-						m.to << o
-					end
-				end
-			end
-			m.to = m[:reply_to] if m[:reply_to]
-			m.from = "#{$email_name} <#{email_addr}>"
+			m.cc = orig[:cc]
+			m.from = $email
 			m.charset = 'utf-8'
 		end
 
@@ -938,7 +989,7 @@ ruby << EOF
 	end
 
 	class Message
-		attr_accessor :start, :body_start, :end
+		attr_accessor :start, :body_start, :end, :full_header_start, :full_header_end
 		attr_reader :message_id, :filename, :mail
 
 		def initialize(msg, mail)
@@ -947,6 +998,8 @@ ruby << EOF
 			@mail = mail
 			@start = 0
 			@end = 0
+			@full_header_start = 0
+			@full_header_end = 0
 			mail.import_headers(msg) if not $mail_installed
 		end
 

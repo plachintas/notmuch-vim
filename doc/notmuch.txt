@@ -47,6 +47,7 @@ MAPPINGS					*notmuch-mappings*
 Folder view~
 
 <enter>	Show selected search
+A	Archive (-inbox -unread) an entire folder
 s	Enter a new search
 =	Refresh
 c	Compose a new mail
@@ -74,8 +75,8 @@ I	Mark as read (-unread)
 t	Tag (prompted)
 e       Extract attachment on the current 'Attachment' line or all
 	attachments if the cursor is elsewhere.
-v       View attachment on the current 'Attachment' line.
-u	Open URI
+<enter> View email part on the current 'Part' line, or open URI under cursor
+        or on line.
 s	Search
 p	Save patches
 r	Reply
