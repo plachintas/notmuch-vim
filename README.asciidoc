@@ -3,7 +3,8 @@
 This is a vim plug-in that provides a fully usable mail client interface,
 utilizing the notmuch framework.
 
-This version is heavily hacked on and adds a number of features to the original:
+I have been doing a lot of work on this version and have added a number
+of features to the original:
 
 - URI opening support.
 - Attachment saving and opening support.
@@ -17,6 +18,9 @@ This version is heavily hacked on and adds a number of features to the original:
 - Better reply handling.
 - Automatically refresh folder index.
 - Sending of attachments.
+
+I have been working with the upstream community to get these included but the
+pace has been slow so I've made this available here.
 
 == Install ==
 
