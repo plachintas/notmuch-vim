@@ -16,6 +16,7 @@ This version is heavily hacked on and adds a number of features to the original:
 - Better search listing.
 - Better reply handling.
 - Automatically refresh folder index.
+- Sending of attachments.
 
 == Install ==
 

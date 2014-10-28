@@ -42,7 +42,7 @@ let g:notmuch_show_maps = {
 	\ 'r':		'show_reply()',
 	\ '?':		'show_info()',
 	\ '<S-Tab>':	'show_prev_msg()',
-	\ '<Tab>':	'show_next_msg()',
+	\ '<Tab>':	'show_next_msg("unread")',
 	\ 'c':		'compose("")',
 	\ }
 
@@ -105,16 +105,34 @@ endfunction
 function! s:compose_send()
 	let b:compose_done = 1
 	let fname = expand('%')
-	let lines = getline(5, '$')
+	let lines = getline(7, '$')
 
 ruby << EOF
 	# Generate proper mail to send
 	text = VIM::evaluate('lines').join("\n")
 	fname = VIM::evaluate('fname')
-	transport = Mail.new(text)
-	transport.message_id = generate_message_id
-	transport.charset = 'utf-8'
-	File.write(fname, transport.to_s)
+	nm = Mail.new(text)
+	nm.message_id = generate_message_id
+	nm.charset = 'utf-8'
+	attachment = nil
+	nm.header.fields.each do |f|
+		if f.name == 'Attach'
+			nm.add_file(f.value)
+			attachment = f
+		end
+	end
+	if attachment
+		# This deletes them all as it matches the key 'name' which is
+		# 'Attach'.  We want to do this because we don't really want
+		# those to be part of the header.
+		nm.header.fields.delete(attachment)
+		# Force a multipart message.  I actually think this might be
+		# a bug in the mail ruby gem but..
+		nm.text_part = Mail::Part.new(nm.body)
+		nm.html_part = Mail::Part.new(nm.body)
+	end
+
+	File.write(fname, nm.to_s)
 EOF
 
 	let cmdtxt = g:notmuch_sendmail . ' -t -f ' . s:reply_from . ' < ' . fname
@@ -148,28 +166,61 @@ function! s:show_prev_msg()
 ruby << EOF
 	r, c = $curwin.cursor
 	n = $curbuf.line_number
-	i = $messages.index { |m| n >= m.start && n <= m.end }
+	i = $messages.index { |m| n >= m.start && n < m.end }
 	m = $messages[i - 1] if i > 0
 	if m
-		r = m.body_start + 1
-		scrolloff = VIM::evaluate("&scrolloff")
-		VIM::command("normal #{m.start + scrolloff}zt")
-		$curwin.cursor = r + scrolloff, c
+		fold = VIM::evaluate("foldclosed(#{m.start})")
+		if fold > 0
+			# If we are moving to a fold then we don't want to move
+			# into the fold as it doesn't seem right once you open it.
+			VIM::command("normal #{m.start}zt")
+		else
+			r = m.body_start + 1
+			scrolloff = VIM::evaluate("&scrolloff")
+			VIM::command("normal #{m.start + scrolloff}zt")
+			$curwin.cursor = r + scrolloff, c
+		end
 	end
 EOF
 endfunction
 
-function! s:show_next_msg()
+function! s:show_next_msg(matching_tag)
 ruby << EOF
+	matching_tag = VIM::evaluate('a:matching_tag')
+
 	r, c = $curwin.cursor
 	n = $curbuf.line_number
-	i = $messages.index { |m| n >= m.start && n <= m.end }
-	m = $messages[i + 1]
-	if m
-		r = m.body_start + 1
-		scrolloff = VIM::evaluate("&scrolloff")
-		VIM::command("normal #{m.start + scrolloff}zt")
-		$curwin.cursor = r + scrolloff, c
+	i = $messages.index { |m| n >= m.start && n < m.end }
+	i = i + 1
+	found_msg = nil
+	while i < $messages.length and found_msg == nil
+		m = $messages[i]
+		if matching_tag.length > 0
+			m.tags.each do |tag|
+				if tag == matching_tag
+					found_msg = m
+					break
+				end
+			end
+		else
+			found_msg = m
+			break
+		end
+		i = i + 1
+	end
+
+	if found_msg
+		fold = VIM::evaluate("foldclosed(#{found_msg.start})")
+		if fold > 0
+			# If we are moving to a fold then we don't want to move
+			# into the fold as it doesn't seem right once you open it.
+			VIM::command("normal #{found_msg.start}zt")
+		else
+			r = found_msg.body_start + 1
+			scrolloff = VIM::evaluate("&scrolloff")
+			VIM::command("normal #{found_msg.start + scrolloff}zt")
+			$curwin.cursor = r + scrolloff, c
+		end
 	end
 EOF
 endfunction
@@ -200,16 +251,33 @@ endfunction
 
 function! s:show_view_magic()
 	let line = getline(".")
-
+	let pos = getpos(".")
+	let lineno = pos[1]
+	let fold = foldclosed(lineno)
 ruby << EOF
 	line = VIM::evaluate('line')
-
-	# Easiest to check for 'Part' types first..
-	match = line.match(/^Part (\d*):/)
-	if match and match.length == 2
-		VIM::command('call s:show_view_attachment()')
+	lineno = VIM::evaluate('lineno')
+	fold = VIM::evaluate('fold')
+	# Also use enter to open folds.  After using 'enter' to get
+	# all the way to here it feels very natural to want to use it
+	# to open folds too.
+	if fold > 0
+		VIM::command('foldopen')
+		scrolloff = VIM::evaluate("&scrolloff")
+		vim_puts("Moving to #{lineno} + #{scrolloff} zt")
+		# We use relative movement here because of the folds
+		# within the messages (header folds).  If you use absolute movement the
+		# cursor will get stuck in the fold.
+		VIM::command("normal #{scrolloff}j")
+		VIM::command("normal zt")
 	else
-		VIM::command('call s:show_open_uri()')
+		# Easiest to check for 'Part' types first..
+		match = line.match(/^Part (\d*):/)
+		if match and match.length == 2
+			VIM::command('call s:show_view_attachment()')
+		else
+			VIM::command('call s:show_open_uri()')
+		end
 	end
 EOF
 endfunction
@@ -313,6 +381,14 @@ ruby << EOF
 		if uri.class == URI::MailTo
 			vim_puts("Composing new email to #{uri.to}.")
 			VIM::command("call s:compose('#{uri.to}')")
+		elsif uri.class == URI::MsgID
+			msg = $curbuf.message(uri.opaque)
+			if !msg
+				vim_puts("Message not found in NotMuch database: #{uri.to_s}")
+			else
+				vim_puts("Opening message #{msg.message_id} in thread #{msg.thread_id}.")
+				VIM::command("call s:show('thread:#{msg.thread_id}', '#{msg.message_id}')")
+			end
 		else
 			vim_puts("Opening #{uri.to_s}.")
 			cmd = VIM::evaluate('g:notmuch_open_uri')
@@ -483,7 +559,7 @@ endfunction
 
 "" main
 
-function! s:show(thread_id)
+function! s:show(thread_id, msg_id)
 	call s:new_buffer('show')
 	setlocal modifiable
 ruby << EOF
@@ -491,6 +567,7 @@ ruby << EOF
 	show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
 
 	thread_id = VIM::evaluate('a:thread_id')
+	msg_id = VIM::evaluate('a:msg_id')
 	$cur_thread = thread_id
 	$messages.clear
 	$curbuf.render do |b|
@@ -538,6 +615,9 @@ ruby << EOF
 			end
 			b << ""
 			nm_m.end = b.count
+			if !msg_id.empty? and nm_m.message_id == msg_id
+				VIM::command("normal #{nm_m.start}zt")
+			end
 		end
 		b.delete(b.count)
 	end
@@ -568,7 +648,7 @@ ruby << EOF
 	when 1; $cur_filter = nil
 	when 2; $cur_filter = $cur_search
 	end
-	VIM::command("call s:show('#{id}')")
+	VIM::command("call s:show('#{id}', '')")
 EOF
 endfunction
 
@@ -809,6 +889,8 @@ ruby << EOF
 			'Notmuch-Help: Type in your message here; to help you use these bindings:',
 			'Notmuch-Help:   ,s    - send the message (Notmuch-Help lines will be removed)',
 			'Notmuch-Help:   ,q    - abort the message',
+			'Notmuch-Help: Add a filename after the "Attach:" header to attach a file.',
+			'Notmuch-Help: Multiple Attach headers my be added.',
 			]
 
 		dir = File.expand_path('~/.notmuch/compose')
@@ -846,38 +928,34 @@ ruby << EOF
 	def open_reply(orig)
 		reply = orig.reply do |m|
 			m.cc = []
+			m.to = []
 			email_addr = $email_address
-			# Append addresses to the new to: from the original from:
-			# so long as they are not ours.
+			# Use hashes for email addresses so we can eliminate duplicates.
+			to = Hash.new
+			cc = Hash.new
 			if orig[:from]
 				orig[:from].each do |o|
-					if not is_our_address(o)
-						m.to << o
-					end
+					to[o.address] = o
 				end
 			end
-			# This copies the cc list to the new email while
-			# stripping out our own addresses and sets the from:
-			# address to ours if it finds one.
 			if orig[:cc]
 				orig[:cc].each do |o|
-					if is_our_address(o)
-						email_addr = is_our_address(o)
-					else
-						m.cc << o
-					end
+					cc[o.address] = o
 				end
 			end
-			# This copies the to list to the new email while
-			# stripping out our own addresses and sets the from:
-			# address to ours if it finds one.
 			if orig[:to]
 				orig[:to].each do |o|
-					if is_our_address(o)
-						email_addr = is_our_address(o)
-					else
-						m.to << o
-					end
+					cc[o.address] = o
+				end
+			end
+			to.each do |e_addr, addr|
+				m.to << addr
+			end
+			cc.each do |e_addr, addr|
+				if is_our_address(e_addr)
+					email_addr = is_our_address(e_addr)
+				else
+					m.cc << addr
 				end
 			end
 			m.to = m[:reply_to] if m[:reply_to]
@@ -926,7 +1004,7 @@ ruby << EOF
 		lines << "Cc: "
 		lines << "Bcc: "
 		lines << "Subject: "
-		lines << ""
+		lines << "Attach: "
 		lines << ""
 		lines << ""
 
@@ -1015,6 +1093,10 @@ ruby << EOF
 			q
 		end
 
+		def message(id)
+			@db.find_message(id)
+		end
+
 		def close
 			@queries.delete_if { |q| ! q.destroy! }
 			@db.close
@@ -1035,9 +1117,16 @@ ruby << EOF
 		end
 	end
 
+	module URI
+		class MsgID < Generic
+		end
+
+		@@schemes['ID'] = MsgID
+	end
+
 	class Message
 		attr_accessor :start, :body_start, :end, :full_header_start, :full_header_end
-		attr_reader :message_id, :filename, :mail
+		attr_reader :message_id, :filename, :mail, :tags
 
 		def initialize(msg, mail)
 			@message_id = msg.message_id
@@ -1047,6 +1136,7 @@ ruby << EOF
 			@end = 0
 			@full_header_start = 0
 			@full_header_end = 0
+			@tags = msg.tags
 			mail.import_headers(msg) if not $mail_installed
 		end
 
@@ -1161,6 +1251,7 @@ ruby << EOF
 		def to_s
 			buffer = ''
 			@headers.each do |key, value|
+				vim_puts("Adding #{key} => #{value}\n")
 				buffer << "%s: %s\r\n" %
 					[format_header(key), value]
 			end
@@ -1196,10 +1287,11 @@ ruby << EOF
 			r[:cc] = self[:cc]
 			r[:in_reply_to] = self[:message_id]
 			r[:references] = self[:references]
+			r[:attach] = self[:attach]
 			r
 		end
 
-		HEADERS = [ :from, :to, :cc, :references, :in_reply_to, :reply_to, :message_id ]
+		HEADERS = [ :from, :to, :cc, :references, :in_reply_to, :reply_to, :message_id, :attach]
 
 		def import_headers(m)
 			HEADERS.each do |e|
@@ -1249,6 +1341,7 @@ ruby << EOF
 				header.fields.each do |f|
 					buffer << "%s: %s\r\n" % [f.name, f.to_s]
 				end
+				buffer << "Attach: \r\n"
 				buffer << "\r\n"
 				buffer << body.to_s
 				buffer
