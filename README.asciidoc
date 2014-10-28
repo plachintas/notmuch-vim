@@ -82,6 +82,10 @@ So you can run:
 
 Enjoy ;)
 
+== Documentation ==
+
+For more detailed documentation, refer to the doc/notmuch.txt file.
+
 == More stuff ==
 
 As an example to configure a key mapping to add the tag 'to-do' and archive,
