@@ -116,7 +116,8 @@ ruby << EOF
 	nm.charset = 'utf-8'
 	attachment = nil
 	nm.header.fields.each do |f|
-		if f.name == 'Attach'
+		if f.name == 'Attach' and f.value.length > 0 and f.value !~ /^\s+/
+			vim_puts("Adding file #{f.value} length #{f.value.length}")
 			nm.add_file(f.value)
 			attachment = f
 		end
