@@ -20,7 +20,8 @@ let g:notmuch_search_maps = {
 	\ 'q':		'kill_this_buffer()',
 	\ '<Enter>':	'search_show_thread(1)',
 	\ '<Space>':	'search_show_thread(2)',
-	\ 'A':		'search_tag("-inbox -unread")',
+	\ 'A':		'search_tag_all("-inbox -unread")',
+	\ 'a':		'search_tag("-inbox -unread")',
 	\ 'I':		'search_tag("-unread")',
 	\ 't':		'search_tag("")',
 	\ 's':		'search_search_prompt()',
@@ -31,7 +32,7 @@ let g:notmuch_search_maps = {
 
 let g:notmuch_show_maps = {
 	\ 'q':		'kill_this_buffer()',
-	\ 'A':		'show_tag("-inbox -unread")',
+	\ 'a':		'show_tag("-inbox -unread")',
 	\ 'I':		'show_tag("-unread")',
 	\ 't':		'show_tag("")',
 	\ 'o':		'show_open_msg()',
@@ -492,6 +493,16 @@ function! s:search_tag(intags)
 	endif
 	ruby do_tag(get_thread_id, VIM::evaluate('l:tags'))
 	norm j
+endfunction
+
+function! s:search_tag_all(intags)
+	if empty(a:intags)
+		let tags = input('tags: ')
+	else
+		let tags = a:intags
+	endif
+	ruby do_tag($cur_search, VIM::evaluate('l:tags'))
+	echo 'Tagged all search results with '.a:intags
 endfunction
 
 function! s:folders_search_prompt()

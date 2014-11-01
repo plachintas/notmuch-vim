@@ -58,7 +58,7 @@ Search view~
 q	Quit view
 <enter>	Show selected search
 <space>	Show selected search with filter
-A	Archive (-inbox -unread)
+a	Archive (-inbox -unread)
 I	Mark as read (-unread)
 t	Tag (prompted)
 s	Search
@@ -70,7 +70,7 @@ c	Compose a new mail
 Thread view~
 
 q	Quit view
-A	Archive (-inbox -unread)
+a	Archive (-inbox -unread)
 I	Mark as read (-unread)
 t	Tag (prompted)
 e       Extract attachment on the current 'Attachment' line or all
