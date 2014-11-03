@@ -211,5 +211,8 @@ in for you and the old message will be quoted in the body.
 
 == Reference Documentation ==
 
-For reference documentation, refer to the doc/notmuch.txt file.
+Now that you have a general sense of how to use notmuch-vim, I recommend you
+check out the reference documentation and see about configuring your vimrc with
+custom searches and possibly custom key bindings.  Refer to the doc/notmuch.txt
+for more information.
 
