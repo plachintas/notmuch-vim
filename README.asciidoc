@@ -1,4 +1,4 @@
-== notmuch vim ==
+= notmuch vim =
 
 This is a vim plug-in that provides a fully usable mail client interface,
 utilizing the notmuch framework.
@@ -100,7 +100,7 @@ forward email to your ISPs mail server.
 
 == Tutorial ==
 
-= Searches =
+=== Searches ===
 
 Once you have notmuch-vim up and running, you will likely want to change the
 default search results.  We call them folders but really they are just search
@@ -131,7 +131,7 @@ any time hit 's' and input your own search.
 You can move through selections using normal vim movement keys.  To view the
 results of a search term you can press 'Enter' on the given line.
 
-= Search View =
+=== Search View ===
 
 Once you have selected or performed a search a list of results will be
 displayed as a list of threads.  In this screen you can do a number of things
@@ -140,7 +140,7 @@ including tagging threads, searching, composing new email etc.  Pressing
 close that buffer and display the previous one, which is usually the folder
 view.
 
-= Thread View =
+=== Thread View ===
 
 If you have selected a single email, the entire email will come up in a new
 buffer.  If you have selected a thread they will be shown 'folded'.  To open a
@@ -173,7 +173,7 @@ application settings.  You can also save an attachment using the 'e' (extract)
 key.  Using 'e' on a line without a 'Part:' will cause all attachments to be
 saved in the current working directory.
 
-= Archiving =
+=== Archiving ===
 
 By default the 'a' key is used to archive emails.  All this really does is
 remove the 'unread' and 'inbox' tags.  Generally when using notmuch you never
@@ -183,14 +183,14 @@ that you can remember, preferably one that is in your default search terms.
 
 In the folders view you can use the 'A' key to tag all messages as read.
 
-= Tagging =
+=== Tagging ===
 
 In both the thread and search result views you can use 't' to add or remove
 arbitrary tags to an email or thread.  To add a 'todo' tag you would simply hit
 't' and then type in 'todo' when prompted.  To remove the 'todo' tag you would
 enter '-todo'
 
-= Composing =
+=== Composing ===
 
 At any time you can press 'c' to compose a new email.  This will bring up a new
 buffer with headers available for you to fill out.  Most of this is pretty self
@@ -209,22 +209,7 @@ the buffer in order to send the email.
 Replying is basically identical except that some of the headers will be filled
 in for you and the old message will be quoted in the body.
 
-
-
+== Reference Documentation ==
 
 For reference documentation, refer to the doc/notmuch.txt file.
 
-== More stuff ==
-
-As an example to configure a key mapping to add the tag 'to-do' and archive,
-this is what I use:
-
-----
-let g:notmuch_rb_custom_search_maps = {
-	\ 't':		'search_tag("+to-do -inbox")',
-	\ }
-
-let g:notmuch_rb_custom_show_maps = {
-	\ 't':		'show_tag("+to-do -inbox")',
-	\ }
-----
