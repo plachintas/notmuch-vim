@@ -1169,6 +1169,8 @@ ruby << EOF
 			@last_render = 0
 
 			@b.render { do_next }
+
+			@last_render = @b.count
 		end
 
 		def is_ready?
