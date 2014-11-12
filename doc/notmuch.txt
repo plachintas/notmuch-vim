@@ -46,7 +46,7 @@ MAPPINGS					*notmuch-mappings*
 ------------------------------------------------------------------------------
 Folder view~
 
-<enter>	Show selected search
+<Enter>	Show selected search
 A	Archive (-inbox -unread) an entire folder
 s	Enter a new search
 =	Refresh
@@ -56,9 +56,10 @@ c	Compose a new mail
 Search view~
 
 q	Quit view
-<enter>	Show selected search
-<space>	Show selected search with filter
-a	Archive (-inbox -unread)
+<Enter>	Show selected search
+<Space>	Show selected search with filter
+A	Archive (-inbox -unread) all search results displayed.
+a	Archive (-inbox -unread) thread
 I	Mark as read (-unread)
 t	Tag (prompted)
 s	Search
@@ -70,18 +71,20 @@ c	Compose a new mail
 Thread view~
 
 q	Quit view
-a	Archive (-inbox -unread)
+a	Archive (-inbox -unread) the current thread and move to next thread
 I	Mark as read (-unread)
 t	Tag (prompted)
+o	Open message in another email viewer
 e       Extract attachment on the current 'Attachment' line or all
 	attachments if the cursor is elsewhere.
-<enter> View email part on the current 'Part' line, or open URI under cursor
-        or on line.
+<Enter> View email part on the current 'Part' line; open URI under cursor
+        or on line; expands folded thread.
 s	Search
 p	Save patches
 r	Reply
 ?	Show thread information
-<tab>	Show next message
+<S-Tab>	Jump to previous message
+<Tab>	Jump to next unread message
 c	Compose a new mail
 
 ------------------------------------------------------------------------------
@@ -157,9 +160,46 @@ You can also configure your externail mail reader and sendemail program:
 >
 	let g:notmuch_reader = 'mutt -f %s'
 	let g:notmuch_sendmail = 'sendmail'
+<
 
 You can also configure what probram is used to view attachments:
 
+						*g:notmuch_view_attachment*
+>
 	let g:notmuch_view_attachment = 'xdg-open'
+<
+						*g:notmuch_open_uri*
+Set the tool used to open a URI:
+>
+	let g:notmuch_open_uri = 'xdg-open'
+<
+Show email threads as folded?
+						*g:notmuch_show_folded_threads*
+>
+	let g:notmuch_show_folded_threads = 1
+<
+Configure whether to display full headers folded in the message:
 
+						*g:notmuch_show_folded_full_headers*
+>
+	let g:notmuch_show_folded_full_headers = 1
+<
+If you would prefer to start composing an email in insert mode:
+
+						*g:notmuch_compose_start_insert*
+>
+	let g:notmuch_compose_start_insert = 0
+<
+Save email to local notmuch email database?
+
+						*g:notmuch_save_sent_locally*
+>
+	let g:notmuch_save_sent_locally = 1
+<
+Configure which folder to save sent email to:
+
+						*g:notmuch_save_sent_mailbox*
+>
+	let g:notmuch_save_sent_mailbox = 'Sent'
+<
 vim:tw=78:ts=8:noet:ft=help:
