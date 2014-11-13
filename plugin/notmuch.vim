@@ -902,7 +902,7 @@ ruby << EOF
 			'Notmuch-Help:   ,s    - send the message (Notmuch-Help lines will be removed)',
 			'Notmuch-Help:   ,q    - abort the message',
 			'Notmuch-Help: Add a filename after the "Attach:" header to attach a file.',
-			'Notmuch-Help: Multiple Attach headers my be added.',
+			'Notmuch-Help: Multiple Attach headers may be added.',
 			]
 
 		dir = File.expand_path('~/.notmuch/compose')
