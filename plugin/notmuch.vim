@@ -108,42 +108,7 @@ function! s:compose_send()
 	let fname = expand('%')
 	let lines = getline(7, '$')
 
-ruby << EOF
-	# Generate proper mail to send
-	text = VIM::evaluate('lines').join("\n")
-	fname = VIM::evaluate('fname')
-	nm = Mail.new(text)
-	nm.message_id = generate_message_id
-	nm.charset = 'utf-8'
-	attachment = nil
-	files = []
-	nm.header.fields.each do |f|
-		if f.name == 'Attach' and f.value.length > 0 and f.value !~ /^\s+/
-			# We can't just do the attachment here because it screws up the
-			# headers and makes our loop incorrect.
-			files.push(f.value)
-			attachment = f
-		end
-	end
-
-	files.each do |f|
-		vim_puts("Attaching file #{f}")
-		nm.add_file(f)
-	end
-
-	if attachment
-		# This deletes them all as it matches the key 'name' which is
-		# 'Attach'.  We want to do this because we don't really want
-		# those to be part of the header.
-		nm.header.fields.delete(attachment)
-		# Force a multipart message.  I actually think this might be
-		# a bug in the mail ruby gem but..
-		nm.text_part = Mail::Part.new(nm.body)
-		nm.html_part = Mail::Part.new(nm.body)
-	end
-
-	File.write(fname, nm.to_s)
-EOF
+	ruby rb_compose_send(VIM::evaluate('s:lines', VIM::evaluate('s:fname')))
 
 	let cmdtxt = g:notmuch_sendmail . ' -t -f ' . s:reply_from . ' < ' . fname
 	let out = system(cmdtxt)
@@ -173,72 +138,15 @@ EOF
 endfunction
 
 function! s:show_prev_msg()
-ruby << EOF
-	r, c = $curwin.cursor
-	n = $curbuf.line_number
-	messages = $curbuf.messages
-	i = messages.index { |m| n >= m.start && n < m.end }
-	m = messages[i - 1] if i > 0
-	if m
-		fold = VIM::evaluate("foldclosed(#{m.start})")
-		if fold > 0
-			# If we are moving to a fold then we don't want to move
-			# into the fold as it doesn't seem right once you open it.
-			VIM::command("normal #{m.start}zt")
-		else
-			r = m.body_start + 1
-			scrolloff = VIM::evaluate("&scrolloff")
-			VIM::command("normal #{m.start + scrolloff}zt")
-			$curwin.cursor = r + scrolloff, c
-		end
-	end
-EOF
+	ruby rb_show_prev_msg()
 endfunction
 
 function! s:show_next_msg(matching_tag)
-ruby << EOF
-	matching_tag = VIM::evaluate('a:matching_tag')
-
-	r, c = $curwin.cursor
-	n = $curbuf.line_number
-	messages = $curbuf.messages
-	i = messages.index { |m| n >= m.start && n < m.end }
-	i = i + 1
-	found_msg = nil
-	while i < messages.length and found_msg == nil
-		m = messages[i]
-		if matching_tag.length > 0
-			m.tags.each do |tag|
-				if tag == matching_tag
-					found_msg = m
-					break
-				end
-			end
-		else
-			found_msg = m
-			break
-		end
-		i = i + 1
-	end
-
-	if found_msg
-		fold = VIM::evaluate("foldclosed(#{found_msg.start})")
-		if fold > 0
-			# If we are moving to a fold then we don't want to move
-			# into the fold as it doesn't seem right once you open it.
-			VIM::command("normal #{found_msg.start}zt")
-		else
-			r = found_msg.body_start + 1
-			scrolloff = VIM::evaluate("&scrolloff")
-			VIM::command("normal #{found_msg.start + scrolloff}zt")
-			$curwin.cursor = r + scrolloff, c
-		end
-	end
-EOF
+	ruby rb_show_next_msg(VIM::evaluate('a:matching_tag'))
 endfunction
 
 function! s:show_reply()
-	ruby open_reply get_message.mail
+	ruby rb_show_reply(get_message.mail)
 	let b:compose_done = 0
 	call s:set_map(g:notmuch_compose_maps)
 	autocmd BufDelete <buffer> call s:on_compose_delete()
@@ -248,7 +156,7 @@ function! s:show_reply()
 endfunction
 
 function! s:compose(to_email)
-	ruby open_compose(VIM::evaluate('a:to_email'))
+	ruby rb_open_compose(VIM::evaluate('a:to_email'))
 	let b:compose_done = 0
 	call s:set_map(g:notmuch_compose_maps)
 	autocmd BufDelete <buffer> call s:on_compose_delete()
@@ -266,150 +174,26 @@ function! s:show_view_magic()
 	let pos = getpos(".")
 	let lineno = pos[1]
 	let fold = foldclosed(lineno)
-ruby << EOF
-	line = VIM::evaluate('line')
-	lineno = VIM::evaluate('lineno')
-	fold = VIM::evaluate('fold')
-	# Also use enter to open folds.  After using 'enter' to get
-	# all the way to here it feels very natural to want to use it
-	# to open folds too.
-	if fold > 0
-		VIM::command('foldopen')
-		scrolloff = VIM::evaluate("&scrolloff")
-		vim_puts("Moving to #{lineno} + #{scrolloff} zt")
-		# We use relative movement here because of the folds
-		# within the messages (header folds).  If you use absolute movement the
-		# cursor will get stuck in the fold.
-		VIM::command("normal #{scrolloff}j")
-		VIM::command("normal zt")
-	else
-		# Easiest to check for 'Part' types first..
-		match = line.match(/^Part (\d*):/)
-		if match and match.length == 2
-			VIM::command('call s:show_view_attachment()')
-		else
-			VIM::command('call s:show_open_uri()')
-		end
-	end
-EOF
+
+	ruby rb_show_view_magic(VIM::evaluate('line'), VIM::evaluate('lineno'), VIM::evaluate('fold'))
 endfunction
 
 function! s:show_view_attachment()
 	let line = getline(".")
-ruby << EOF
-	m = get_message
-	line = VIM::evaluate('line')
-
-	match = line.match(/^Part (\d*):/)
-	if match and match.length == 2
-		# Set up the tmpdir
-		tmpdir = VIM::evaluate('g:notmuch_attachment_tmpdir')
-		tmpdir = File.expand_path(tmpdir)
-		Dir.mkdir(tmpdir) unless Dir.exists?(tmpdir)
-
-		p = m.mail.parts[match[1].to_i - 1]
-		if p == nil
-			# Not a multipart message, use the message itself.
-			p = m.mail
-		end
-		if p.filename and p.filename.length > 0
-			filename = p.filename
-		else
-			suffix = ''
-			if p.mime_type == 'text/html'
-				suffix = '.html'
-			end
-			filename = "part-#{match[1]}#{suffix}"
-		end
-
-		# Sanitize just in case..
-		filename.gsub!(/[^0-9A-Za-z.\-]/, '_')
-
-		fullpath = File.expand_path("#{tmpdir}/#{filename}")
-		vim_puts "Viewing attachment #{fullpath}"
-		File.open(fullpath, 'w') do |f|
-			f.write p.body.decoded
-			cmd = VIM::evaluate('g:notmuch_view_attachment')
-			system(cmd, fullpath)
-		end
-	else
-		vim_puts "No attachment on this line."
-	end
-EOF
+	ruby rb_show_view_attachment(VIM::evaluate('line'))
 endfunction
 
 function! s:show_extract_msg()
 	let line = getline(".")
-ruby << EOF
-	m = get_message
-	line = VIM::evaluate('line')
-
-	# If the user is on a line that has an 'Part'
-	# line, we just extract the one attachment.
-	match = line.match(/^Part (\d*):/)
-	if match and match.length == 2
-		a = m.mail.parts[match[1].to_i - 1]
-		File.open(a.filename, 'w') do |f|
-			f.write a.body.decoded
-			vim_puts "Extracted #{a.filename}"
-		end
-	else
-		# Extract them all..
-		m.mail.attachments.each do |a|
-			File.open(a.filename, 'w') do |f|
-				f.write a.body.decoded
-				vim_puts "Extracted #{a.filename}"
-			end
-		end
-	end
-EOF
+	ruby rb_show_extract_msg(VIM::evaluate('line')0
 endfunction
 
 function! s:show_open_uri()
 	let line = getline(".")
 	let pos = getpos(".")
 	let col = pos[2]
-ruby << EOF
-	m = get_message
-	line = VIM::evaluate('line')
-	col = VIM::evaluate('col') - 1
-	uris = URI.extract(line)
-	wanted_uri = nil
-	if uris.length == 1
-		wanted_uri = uris[0]
-	else
-		uris.each do |uri|
-			# Check to see the URI is at the present cursor location
-			idx = line.index(uri)
-			if col >= idx and col <= idx + uri.length
-				wanted_uri = uri
-				break
-			end
-		end
-	end
 
-	if wanted_uri
-		uri = URI.parse(wanted_uri)
-		if uri.class == URI::MailTo
-			vim_puts("Composing new email to #{uri.to}.")
-			VIM::command("call s:compose('#{uri.to}')")
-		elsif uri.class == URI::MsgID
-			msg = $curbuf.message(uri.opaque)
-			if !msg
-				vim_puts("Message not found in NotMuch database: #{uri.to_s}")
-			else
-				vim_puts("Opening message #{msg.message_id} in thread #{msg.thread_id}.")
-				VIM::command("call s:show('thread:#{msg.thread_id}', '#{msg.message_id}')")
-			end
-		else
-			vim_puts("Opening #{uri.to_s}.")
-			cmd = VIM::evaluate('g:notmuch_open_uri')
-			system(cmd, uri.to_s)
-		end
-	else
-		vim_puts('URI not found.')
-	end
-EOF
+	ruby rb_show_open_uri(VIM::evaluate('line'), VIM::evaluate('col') - 1)
 endfunction
 
 function! s:show_open_msg()
@@ -432,32 +216,7 @@ endfunction
 
 function! s:show_save_patches()
 	let dir = input('Save to directory: ', getcwd(), 'dir')
-ruby << EOF
-	dir = VIM::evaluate('dir')
-	if File.exists?(dir)
-		q = $curbuf.query($curbuf.cur_thread)
-		t = q.search_threads.first
-		n = 0
-		m = get_message
-		t.messages.each do |m|
-			next if not m['subject'] =~ /\[PATCH.*\]/
-			next if m['subject'] =~ /^Re:/
-			subject = m['subject']
-			# Sanitize for the filesystem
-			subject.gsub!(/[^0-9A-Za-z.\-]/, '_')
-			# Remove leading underscores.
-			subject.gsub!(/^_+/, '')
-			# git style numbered patchset format.
-			file = "#{dir}/%04d-#{subject}.patch" % [n += 1]
-			vim_puts "Saving patch to #{file}"
-			system "notmuch show --format=mbox id:#{m.message_id} > #{file}"
-		end
-		vim_puts "Saved #{n} patch(es)"
-	else
-		VIM::command('redraw')
-		vim_puts "ERROR: Invalid directory: #{dir}"
-	end
-EOF
+	ruby rb_show_save_patches(VIM::evaluate('dir'))
 endfunction
 
 function! s:show_tag(intags)
@@ -584,96 +343,16 @@ endfunction
 function! s:show(thread_id, msg_id)
 	call s:new_buffer('show')
 	setlocal modifiable
-ruby << EOF
-	show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers')
-	show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
 
-	thread_id = VIM::evaluate('a:thread_id')
-	msg_id = VIM::evaluate('a:msg_id')
-	$curbuf.cur_thread = thread_id
-	messages = $curbuf.messages
-	messages.clear
-	$curbuf.render do |b|
-		q = $curbuf.query(get_cur_view)
-		q.sort = Notmuch::SORT_OLDEST_FIRST
-		msgs = q.search_messages
-		msgs.each do |msg|
-			m = Mail.read(msg.filename)
-			part = m.find_first_text
-			nm_m = Message.new(msg, m)
-			messages << nm_m
-			date_fmt = VIM::evaluate('g:notmuch_datetime_format')
-			date = Time.at(msg.date).strftime(date_fmt)
-			nm_m.start = b.count
-			b << "From: %s %s (%s)" % [msg['from'], date, msg.tags]
-			showheaders = VIM::evaluate('g:notmuch_show_headers')
-			showheaders.each do |h|
-				b << "%s: %s" % [h, m.header[h]]
-			end
-			if show_full_headers
-				# Now show the rest in a folded area.
-				nm_m.full_header_start = b.count
-				m.header.fields.each do |k|
-					# Only show the ones we haven't already printed out.
-					if not showheaders.include?(k.name)
-					    b << '%s: %s' % [k.name, k.to_s]
-					end
-				end
-				nm_m.full_header_end = b.count
-			end
-			cnt = 0
-			m.parts.each do |p|
-				cnt += 1
-				b << "Part %d: %s (%s)" % [cnt, p.mime_type, p.filename]
-			end
-			# Add a special case for text/html messages.  Here we show the
-			# only 'part' so that we can view it in a web browser if we want.
-			if m.parts.length == 0 and part.mime_type == 'text/html'
-				b << "Part 1: text/html"
-			end
-			nm_m.body_start = b.count
-			b << "--- %s ---" % part.mime_type
-			part.convert.each_line do |l|
-				b << l.chomp
-			end
-			b << ""
-			nm_m.end = b.count
-			if !msg_id.empty? and nm_m.message_id == msg_id
-				VIM::command("normal #{nm_m.start}zt")
-			end
-		end
-		b.delete(b.count)
-	end
-	messages = $curbuf.messages
-	messages.each_with_index do |msg, i|
-		VIM::command("syntax region nmShowMsg#{i}Desc start='\\%%%il' end='\\%%%il' contains=@nmShowMsgDesc" % [msg.start, msg.start + 1])
-		VIM::command("syntax region nmShowMsg#{i}Head start='\\%%%il' end='\\%%%il' contains=@nmShowMsgHead" % [msg.start + 1, msg.full_header_start])
-		VIM::command("syntax region nmShowMsg#{i}Body start='\\%%%il' end='\\%%%dl' contains=@nmShowMsgBody" % [msg.body_start, msg.end])
-		if show_full_headers
-			VIM::command("syntax region nmFold#{i}Headers start='\\%%%il' end='\\%%%il' fold transparent contains=@nmShowMsgHead" % [msg.full_header_start, msg.full_header_end])
-		end
-		# Only fold the whole message if there are multiple emails in this thread.
-		if messages.count > 1 and show_threads_folded
-			VIM::command("syntax region nmShowMsgFold#{i} start='\\%%%il' end='\\%%%il' fold transparent contains=ALL" % [msg.start, msg.end])
-		end
-	end
-EOF
+	ruby rb_show(VIM::evaluate('a:thread_id'), VIM::evaluate('a:msg_id'))
+
 	setlocal nomodifiable
 	setlocal foldmethod=syntax
 	call s:set_map(g:notmuch_show_maps)
 endfunction
 
 function! s:search_show_thread(mode)
-ruby << EOF
-	mode = VIM::evaluate('a:mode')
-	id = get_thread_id
-	case mode
-	when 0;
-	when 1; $cur_filter = nil
-	when 2; $cur_filter = $cur_search
-	end
-	VIM::command("call s:show('#{id}', '')")
-EOF
+	ruby rb_search_show_thread(VIM::evaluate('a:mode'))
 endfunction
 
 function! s:search(search)
