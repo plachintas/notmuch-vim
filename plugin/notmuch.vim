@@ -116,13 +116,21 @@ ruby << EOF
 	nm.message_id = generate_message_id
 	nm.charset = 'utf-8'
 	attachment = nil
+	files = []
 	nm.header.fields.each do |f|
 		if f.name == 'Attach' and f.value.length > 0 and f.value !~ /^\s+/
-			vim_puts("Adding file #{f.value} length #{f.value.length}")
-			nm.add_file(f.value)
+			# We can't just do the attachment here because it screws up the
+			# headers and makes our loop incorrect.
+			files.push(f.value)
 			attachment = f
 		end
 	end
+
+	files.each do |f|
+		vim_puts("Attaching file #{f}")
+		nm.add_file(f)
+	end
+
 	if attachment
 		# This deletes them all as it matches the key 'name' which is
 		# 'Attach'.  We want to do this because we don't really want
