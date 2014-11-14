@@ -729,19 +729,11 @@ function! s:set_defaults()
 	endif
 
 	if !exists('g:notmuch_date_format')
-		if exists('g:notmuch_rb_date_format')
-			let g:notmuch_date_format = g:notmuch_rb_date_format
-		else
-			let g:notmuch_date_format = s:notmuch_date_format_default
-		endif
+		let g:notmuch_date_format = s:notmuch_date_format_default
 	endif
 
 	if !exists('g:notmuch_datetime_format')
-		if exists('g:notmuch_rb_datetime_format')
-			let g:notmuch_datetime_format = g:notmuch_rb_datetime_format
-		else
-			let g:notmuch_datetime_format = s:notmuch_datetime_format_default
-		endif
+		let g:notmuch_datetime_format = s:notmuch_datetime_format_default
 	endif
 
 	if !exists('g:notmuch_open_uri')
@@ -749,19 +741,11 @@ function! s:set_defaults()
 	endif
 
 	if !exists('g:notmuch_reader')
-		if exists('g:notmuch_rb_reader')
-			let g:notmuch_reader = g:notmuch_rb_reader
-		else
-			let g:notmuch_reader = s:notmuch_reader_default
-		endif
+		let g:notmuch_reader = s:notmuch_reader_default
 	endif
 
 	if !exists('g:notmuch_sendmail')
-		if exists('g:notmuch_rb_sendmail')
-			let g:notmuch_sendmail = g:notmuch_rb_sendmail
-		else
-			let g:notmuch_sendmail = s:notmuch_sendmail_default
-		endif
+		let g:notmuch_sendmail = s:notmuch_sendmail_default
 	endif
 
 	if !exists('g:notmuch_attachment_tmpdir')
@@ -773,11 +757,7 @@ function! s:set_defaults()
 	endif
 
 	if !exists('g:notmuch_folders_count_threads')
-		if exists('g:notmuch_rb_count_threads')
-			let g:notmuch_count_threads = g:notmuch_rb_count_threads
-		else
-			let g:notmuch_folders_count_threads = s:notmuch_folders_count_threads_default
-		endif
+		let g:notmuch_folders_count_threads = s:notmuch_folders_count_threads_default
 	endif
 
 	if !exists('g:notmuch_compose_start_insert')
@@ -801,11 +781,7 @@ function! s:set_defaults()
 	endif
 
 	if !exists('g:notmuch_folders')
-		if exists('g:notmuch_rb_folders')
-			let g:notmuch_folders = g:notmuch_rb_folders
-		else
-			let g:notmuch_folders = s:notmuch_folders_default
-		endif
+		let g:notmuch_folders = s:notmuch_folders_default
 	endif
 
 	if !exists('g:notmuch_show_headers')
@@ -830,10 +806,7 @@ ruby << EOF
 	require 'rubygems'
 	require 'tempfile'
 	require 'socket'
-	begin
-		require 'mail'
-	rescue LoadError
-	end
+	require 'mail'
 
 	$db_name = nil
 	$all_emails = []
@@ -1242,111 +1215,7 @@ ruby << EOF
 		end
 	end
 
-	module SimpleMessage
-		class Header < Array
-			def self.parse(string)
-				return nil if string.empty?
-				return Header.new(string.split(/,\s+/))
-			end
-
-			def to_s
-				self.join(', ')
-			end
-		end
-
-		def initialize(string = nil)
-			@raw_source = string
-			@body = nil
-			@headers = {}
-
-			return if not string
-
-			if string =~ /(.*?(\r\n|\n))\2/m
-				head, body = $1, $' || '', $2
-			else
-				head, body = string, ''
-			end
-			@body = body
-		end
-
-		def [](name)
-			@headers[name.to_sym]
-		end
-
-		def []=(name, value)
-			@headers[name.to_sym] = value
-		end
-
-		def format_header(value)
-			value.to_s.tr('_', '-').gsub(/(\w+)/) { $1.capitalize }
-		end
-
-		def to_s
-			buffer = ''
-			@headers.each do |key, value|
-				vim_puts("Adding #{key} => #{value}\n")
-				buffer << "%s: %s\r\n" %
-					[format_header(key), value]
-			end
-			buffer << "\r\n"
-			buffer << @body
-			buffer
-		end
-
-		def body=(value)
-			@body = value
-		end
-
-		def from
-			@headers[:from]
-		end
-
-		def decoded
-			@body
-		end
-
-		def mime_type
-			'text/plain'
-		end
-
-		def multipart?
-			false
-		end
-
-		def reply
-			r = Mail::Message.new
-			r[:from] = self[:to]
-			r[:to] = self[:from]
-			r[:cc] = self[:cc]
-			r[:in_reply_to] = self[:message_id]
-			r[:references] = self[:references]
-			r[:attach] = self[:attach]
-			r
-		end
-
-		HEADERS = [ :from, :to, :cc, :references, :in_reply_to, :reply_to, :message_id, :attach]
-
-		def import_headers(m)
-			HEADERS.each do |e|
-				dashed = format_header(e)
-				@headers[e] = Header.parse(m[dashed])
-			end
-		end
-	end
-
 	module Mail
-
-		if not $mail_installed
-			puts "WARNING: Install the 'mail' gem, without it support is limited"
-
-			def self.read(filename)
-				Message.new(File.open(filename, 'rb') { |f| f.read })
-			end
-
-			class Message
-				include SimpleMessage
-			end
-		end
 
 		class Message
 
