@@ -108,7 +108,7 @@ function! s:compose_send()
 	let fname = expand('%')
 	let lines = getline(7, '$')
 
-	ruby rb_compose_send(VIM::evaluate('s:lines', VIM::evaluate('s:fname')))
+	ruby rb_compose_send(VIM::evaluate('lines'), VIM::evaluate('fname'))
 
 	let cmdtxt = g:notmuch_sendmail . ' -t -f ' . s:reply_from . ' < ' . fname
 	let out = system(cmdtxt)
