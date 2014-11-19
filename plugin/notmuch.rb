@@ -286,21 +286,26 @@ def rb_compose_send(text, fname)
         nm.html_part = Mail::Part.new(nm.body)
     end
 
-    delivery = VIM::evaluate('g:notmuch_sendmail_param_default')
-    del_method = VIM::evaluate('g:notmuch_sendmail_method_default')
-    vim_puts("Sending email...")
-    nm.delivery_method del_method, delivery
+    del_method = VIM::evaluate('g:notmuch_sendmail_method').to_sym
+    del_param_vim = VIM::evaluate('g:notmuch_sendmail_param')
+    del_param = {}
+    del_param_vim.each do |k, v|
+        del_param[k.to_sym] = v
+    end
+
+    vim_puts("Sending email via #{del_method}...")
+    nm.delivery_method del_method, del_param
     nm.deliver!
     vim_puts("Delivery complete.")
 
-    File.write(fname, nm.to_s)
 
     save_locally = VIM::evaluate('g:notmuch_save_sent_locally')
     if save_locally
+        File.write(fname, nm.to_s)
         local_mailbox = VIM::evaluate('g:notmuch_save_sent_mailbox')
-	system("notmuch insert --create-folder --folder=#{local_mailbox} +sent -unread -inbox < #{fname}")
+        system("notmuch insert --create-folder --folder=#{local_mailbox} +sent -unread -inbox < #{fname}")
+        File.delete(fname)
     end
-
 end
 
 def rb_show_prev_msg()

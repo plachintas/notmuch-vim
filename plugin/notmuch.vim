@@ -114,7 +114,6 @@ function! s:compose_send()
 
 	ruby rb_compose_send(VIM::evaluate('lines'), VIM::evaluate('fname'))
 
-	call delete(fname)
 	call s:kill_this_buffer()
 endfunction
 
