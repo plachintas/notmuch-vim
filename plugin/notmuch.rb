@@ -256,7 +256,7 @@ end
 
 def rb_compose_send(text, fname)
     # Generate proper mail to send
-    nm = Mail.new(text)
+    nm = Mail.new(text.join("\n"))
     nm.message_id = generate_message_id
     nm.charset = 'utf-8'
     attachment = nil
@@ -286,7 +286,21 @@ def rb_compose_send(text, fname)
         nm.html_part = Mail::Part.new(nm.body)
     end
 
+    delivery = VIM::evaluate('g:notmuch_sendmail_param_default')
+    del_method = VIM::evaluate('g:notmuch_sendmail_method_default')
+    vim_puts("Sending email...")
+    nm.delivery_method del_method, delivery
+    nm.deliver!
+    vim_puts("Delivery complete.")
+
     File.write(fname, nm.to_s)
+
+    save_locally = VIM::evaluate('g:notmuch_save_sent_locally')
+    if save_locally
+        local_mailbox = VIM::evaluate('g:notmuch_save_sent_mailbox')
+	system("notmuch insert --create-folder --folder=#{local_mailbox} +sent -unread -inbox < #{fname}")
+    end
+
 end
 
 def rb_show_prev_msg()
@@ -481,7 +495,7 @@ def rb_show_extract_msg(line)
     if match and match.length == 2
         p = m.mail.parts[match[1].to_i - 1]
         File.open(p.filename, 'w') do |f|
-            f.write a.body.decoded
+            f.write p.body.decoded
             vim_puts "Extracted #{p.filename}"
         end
     else

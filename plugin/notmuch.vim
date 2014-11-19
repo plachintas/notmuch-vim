@@ -66,6 +66,10 @@ let s:notmuch_show_headers_default = [
 	\ 'Message-ID',
 	\ ]
 
+let s:notmuch_sendmail_method_default = 'sendmail'
+let s:notmuch_sendmail_param_default = {
+	\ }
+
 let s:notmuch_date_format_default = '%d.%m.%y'
 let s:notmuch_datetime_format_default = '%d.%m.%y %H:%M:%S'
 let s:notmuch_reader_default = 'mutt -f %s'
@@ -110,30 +114,7 @@ function! s:compose_send()
 
 	ruby rb_compose_send(VIM::evaluate('lines'), VIM::evaluate('fname'))
 
-	let cmdtxt = g:notmuch_sendmail . ' -t -f ' . s:reply_from . ' < ' . fname
-	let out = system(cmdtxt)
-	let err = v:shell_error
-	if err
-		echohl Error
-		echo 'Eeek! unable to send mail'
-		echo out
-		echohl None
-		return
-	endif
-
-	if g:notmuch_save_sent_locally
-		let out = system('notmuch insert --create-folder --folder=' . g:notmuch_save_sent_mailbox . ' +sent -unread -inbox < ' . fname)
-		let err = v:shell_error
-		if err
-			echohl Error
-			echo 'Eeek! unable to save sent mail'
-			echo out
-			echohl None
-			return
-		endif
-	endif
 	call delete(fname)
-	echo 'Mail sent successfully.'
 	call s:kill_this_buffer()
 endfunction
 
@@ -185,7 +166,7 @@ endfunction
 
 function! s:show_extract_msg()
 	let line = getline(".")
-	ruby rb_show_extract_msg(VIM::evaluate('line')0
+	ruby rb_show_extract_msg(VIM::evaluate('line'))
 endfunction
 
 function! s:show_open_uri()
@@ -473,6 +454,14 @@ function! s:set_defaults()
 
 	if !exists('g:notmuch_show_folded_full_headers')
 		let g:notmuch_show_folded_full_headers = s:notmuch_show_folded_full_headers_default
+	endif
+
+	if !exists('g:notmuch_sendmail_method')
+		let g:notmuch_sendmail_method = s:notmuch_sendmail_method_default
+	endif
+
+	if !exists('g:notmuch_sendmail_param')
+		let g:notmuch_sendmail_param = s:notmuch_sendmail_param_default
 	endif
 
 endfunction
