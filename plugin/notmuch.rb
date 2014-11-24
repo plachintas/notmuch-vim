@@ -7,6 +7,7 @@ require 'mail'
 $db_name = nil
 $all_emails = []
 $email = $email_name = $email_address = nil
+$exclude_tags = []
 $searches = []
 $mail_installed = defined?(Mail)
 
@@ -30,6 +31,8 @@ def get_config
     # Add the primary to this too as we use it for checking
     # addresses when doing a reply
     $all_emails.unshift($email_address)
+    ignore_tags = get_config_item('search.exclude_tags')
+    $exclude_tags = ignore_tags.split("\n")
 end
 
 def vim_puts(s)
@@ -198,6 +201,9 @@ def folders_render()
 	end
 	folders.each do |name, search|
 	    q = $curbuf.query(search)
+            $exclude_tags.each { |t|
+                q.add_tag_exclude(t)
+            }
 	    $searches << search
 	    count = count_threads ? q.search_threads.count : q.search_messages.count
 	    if name == ''
@@ -213,6 +219,9 @@ def search_render(search)
     date_fmt = VIM::evaluate('g:notmuch_date_format')
     q = $curbuf.query(search)
     q.sort = Notmuch::SORT_NEWEST_FIRST
+        $exclude_tags.each { |t|
+        q.add_tag_exclude(t)
+    }
     $curbuf.threads.clear
     t = q.search_threads
 
