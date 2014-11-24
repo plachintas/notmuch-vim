@@ -54,6 +54,7 @@ end
 
 def get_thread_id
     n = $curbuf.line_number - 1
+    return "" if n >= $curbuf.threads.count
     return "thread:%s" % $curbuf.threads[n]
 end
 
@@ -623,12 +624,14 @@ end
 
 def rb_search_show_thread(mode)
     id = get_thread_id
-    case mode
-    when 0;
-    when 1; $cur_filter = nil
-    when 2; $cur_filter = $cur_search
+    if not id.empty?
+        case mode
+        when 0;
+        when 1; $cur_filter = nil
+        when 2; $cur_filter = $cur_search
+	end
+        VIM::command("call s:show('#{id}', '')")
     end
-    VIM::command("call s:show('#{id}', '')")
 end
 
 module DbHelper
