@@ -201,10 +201,10 @@ added as an attachment to the email.  I use VimFiler which allows you to press
 'y' on a file, yanking the complete path which I then paste after the 'Attach:'
 keyword.  You can add as many 'Attach:' lines as you need.
 
-Once completed you can use ',s' or ',q' to either send the email or quit.
-Quitting does not save changes for you.  Of course this is still vim so you can
-save the draft as a file anywhere you like.  Note that you do not need to save
-the buffer in order to send the email.
+Once completed you can use '<Leader>s' or '<Leader>q' to either send the email 
+or quit. Quitting does not save changes for you.  Of course this is still vim 
+so you can save the draft as a file anywhere you like.  Note that you do not
+need to save the buffer in order to send the email.
 
 Replying is basically identical except that some of the headers will be filled
 in for you and the old message will be quoted in the body.

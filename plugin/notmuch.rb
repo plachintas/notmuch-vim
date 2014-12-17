@@ -82,8 +82,8 @@ end
 def open_compose_helper(lines, cur)
     help_lines = [
 	'Notmuch-Help: Type in your message here; to help you use these bindings:',
-	'Notmuch-Help:   ,s    - send the message (Notmuch-Help lines will be removed)',
-	'Notmuch-Help:   ,q    - abort the message',
+	'Notmuch-Help:   <Leader>s    - send the message (Notmuch-Help lines will be removed)',
+	'Notmuch-Help:   <Leader>q    - abort the message',
 	'Notmuch-Help: Add a filename after the "Attach:" header to attach a file.',
 	'Notmuch-Help: Multiple Attach headers may be added.',
     ]

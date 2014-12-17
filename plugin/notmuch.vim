@@ -48,8 +48,8 @@ let g:notmuch_show_maps = {
 	\ }
 
 let g:notmuch_compose_maps = {
-	\ ',s':		'compose_send()',
-	\ ',q':		'compose_quit()',
+	\ '<Leader>s':		'compose_send()',
+	\ '<Leader>q':		'compose_quit()',
 	\ }
 
 let s:notmuch_folders_default = [

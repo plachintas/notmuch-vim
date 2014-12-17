@@ -90,8 +90,8 @@ c	Compose a new mail
 ------------------------------------------------------------------------------
 Compose view~
 
-q	Quit view
-s	Send
+<Leader>q	Quit view
+<Leader>s	Send
 
 ==============================================================================
 CONFIGURATION					*notmuch-config*
