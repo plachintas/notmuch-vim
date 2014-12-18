@@ -94,9 +94,19 @@ There is more information available here: http://notmuchmail.org/howto/
 
 I have been using offlineimap to fetch email with good results.
 
-The default program used to send email with notmuch-vim is 'sendmail'.  Many
-systems have a default mail transport agent installed which can be made to
-forward email to your ISPs mail server.
+In recent versions we changed the sending to use the mail rubygem.  By default
+this still uses the 'sendmail' program to send email but you can now easily
+change it to use your ISPs mail relay.  For example, with Telus I can use:
+
+  let g:notmuch_sendmail_method = 'smtp'
+
+  let g:notmuch_sendmail_param = {
+	  \ 'address': 'smtp.telus.net',
+	  \ }
+
+Unfortunately documentation on the rubygem delivery methods is not very good.
+You can refer to doc/notmuch.txt for more detailed documentation on how to set
+this up.
 
 == Tutorial ==
 

@@ -132,6 +132,42 @@ You can also configure the keyboard mappings for the different views:
 		\ }
 <
 
+						*g:notmuch_sendmail_method*
+						*g:notmuch_sendmail_param*
+
+This allows you to configure how notmuch-vim will send your emails.  The
+default is simply to use the local 'sendmail' program.  However you can
+configure a number of different delivery methods.
+
+To use SMTP to a known relay you can use 'smtp' delivery method and then
+specify any of the following parameters:
+
+>
+	let g:notmuch_sendmail_method = 'smtp'
+
+	let g:notmuch_sendmail_param = {
+		\  'address': "smtp.gmail.com",
+                \  'port': 587,
+                \  'domain': 'your.host.name',
+                \  'user_name': '<username>',
+                \  'password': '<password>',
+                \  'authentication': 'plain',
+                \  'enable_starttls_auto': 'true',
+		\  }
+<
+Of course the above are generally all optional except 'address'.
+
+To use Exim, you must specify exim as the delivery method and then configure
+the location of the binary:
+
+>
+	let g:notmuch_sendmail_method = 'exim'
+
+	let g:notmuch_sendmail_param = {
+		\ 'location': '/usr/bin/exim',
+		\ }
+<
+
 						*g:notmuch_date_format*
 
 To configure the date format you want in the search view:
