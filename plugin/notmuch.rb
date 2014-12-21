@@ -243,24 +243,26 @@ def search_render(search)
 end
 
 def do_tag(filter, tags)
-  $curbuf.do_write do |db|
-    q = db.query(filter)
-    q.search_messages.each do |e|
-      e.freeze
-      tags.split.each do |t|
-        case t
-        when /^-(.*)/
-          e.remove_tag($1)
-        when /^\+(.*)/
-          e.add_tag($1)
-        when /^([^\+^-].*)/
-          e.add_tag($1)
+  if not filter.empty?
+    $curbuf.do_write do |db|
+      q = db.query(filter)
+      q.search_messages.each do |e|
+        e.freeze
+        tags.split.each do |t|
+          case t
+          when /^-(.*)/
+            e.remove_tag($1)
+          when /^\+(.*)/
+            e.add_tag($1)
+          when /^([^\+^-].*)/
+            e.add_tag($1)
+          end
         end
+        e.thaw
+        e.tags_to_maildir_flags
       end
-      e.thaw
-      e.tags_to_maildir_flags
+      q.destroy!
     end
-    q.destroy!
   end
 end
 
