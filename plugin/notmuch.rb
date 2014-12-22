@@ -60,7 +60,7 @@ end
 
 def get_message
   n = $curbuf.line_number
-  return $curbuf.messages.find { |m| n >= m.start && n <= m.end }
+  return $curbuf.messages.find { |m| n >= m.start && n < m.end }
 end
 
 def get_cur_view
@@ -551,9 +551,19 @@ def rb_show_save_patches(dir)
   end
 end
 
+def fold_range(from, to)
+  VIM::command("normal #{from}G")
+  VIM::command("normal zf#{to}G")
+end
+
+def fold_message(msg)
+  fold_range(msg.full_header_start, msg.full_header_end-1)
+  fold_range(msg.start, msg.end-1)
+end
+
 def rb_show(thread_id, msg_id)
   show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers')
-  show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
+  # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
@@ -611,16 +621,10 @@ def rb_show(thread_id, msg_id)
   end
   messages = $curbuf.messages
   messages.each_with_index do |msg, i|
+    fold_message(msg)
     VIM::command("syntax region nmShowMsg#{i}Desc start='\\%%%il' end='\\%%%il' contains=@nmShowMsgDesc" % [msg.start, msg.start + 1])
     VIM::command("syntax region nmShowMsg#{i}Head start='\\%%%il' end='\\%%%il' contains=@nmShowMsgHead" % [msg.start + 1, msg.full_header_start])
     VIM::command("syntax region nmShowMsg#{i}Body start='\\%%%il' end='\\%%%dl' contains=@nmShowMsgBody" % [msg.body_start, msg.end])
-    if show_full_headers
-      VIM::command("syntax region nmFold#{i}Headers start='\\%%%il' end='\\%%%il' fold transparent contains=@nmShowMsgHead" % [msg.full_header_start, msg.full_header_end])
-    end
-    # Only fold the whole message if there are multiple emails in this thread.
-    if messages.count > 1 and show_threads_folded
-      VIM::command("syntax region nmShowMsgFold#{i} start='\\%%%il' end='\\%%%il' fold transparent contains=ALL" % [msg.start, msg.end])
-    end
   end
 end
 

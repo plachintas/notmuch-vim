@@ -330,7 +330,7 @@ function! s:show(thread_id, msg_id)
 	ruby rb_show(VIM::evaluate('a:thread_id'), VIM::evaluate('a:msg_id'))
 
 	setlocal nomodifiable
-	setlocal foldmethod=syntax
+	setlocal foldmethod=manual
 	call s:set_map(g:notmuch_show_maps)
 endfunction
 
