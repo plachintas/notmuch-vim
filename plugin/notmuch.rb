@@ -586,9 +586,9 @@ def rb_show(thread_id, msg_id)
       showheaders.each do |h|
         b << "%s: %s" % [h, m.header[h]]
       end
+      nm_m.full_header_start = b.count
       if show_full_headers
         # Now show the rest in a folded area.
-        nm_m.full_header_start = b.count
         m.header.fields.each do |k|
           # Only show the ones we haven't already printed out.
           if not showheaders.include?(k.name)
