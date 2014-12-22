@@ -245,13 +245,16 @@ function! s:search_tag(intags)
 endfunction
 
 function! s:search_tag_all(intags)
-	if empty(a:intags)
-		let tags = input('tags: ')
-	else
-		let tags = a:intags
+	let choice = confirm('Do you really want to tag all messages in this search?', "&yes\n&no", 1)
+	if choice == 1
+		if empty(a:intags)
+			let tags = input('tags: ')
+		else
+			let tags = a:intags
+		endif
+		ruby do_tag($cur_search, VIM::evaluate('l:tags'))
+		echo 'Tagged all search results with '.a:intags
 	endif
-	ruby do_tag($cur_search, VIM::evaluate('l:tags'))
-	echo 'Tagged all search results with '.a:intags
 endfunction
 
 function! s:folders_search_prompt()
@@ -357,13 +360,16 @@ EOF
 endfunction
 
 function! s:folders_tag_all(tags)
+	let choice = confirm('Do you really want to tag all messages in this folder?', "&yes\n&no", 1)
+	if choice == 1
 ruby << EOF
-	n = $curbuf.line_number
-	s = $searches[n - 1]
-	t = VIM::evaluate('a:tags')
-	do_tag(s, t)
+		n = $curbuf.line_number
+		s = $searches[n - 1]
+		t = VIM::evaluate('a:tags')
+		do_tag(s, t)
 EOF
-	call s:folders_refresh()
+		call s:folders_refresh()
+	endif
 endfunction
 
 function! s:folders()
