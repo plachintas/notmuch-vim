@@ -556,18 +556,20 @@ def fold_range(from, to)
   VIM::command("normal zf#{to}G")
 end
 
-def fold_message(msg)
-  fold_range(msg.full_header_start, msg.full_header_end-1)
+def fold_message(msg, fold_headers)
+  fold_range(msg.full_header_start, msg.full_header_end-1) if fold_headers
   fold_range(msg.start, msg.end-1)
 end
 
 def rb_show(thread_id, msg_id)
-  show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers')
-  # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads')
+  show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers') == 1
+  # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
+  showheaders = VIM::evaluate('g:notmuch_show_headers')
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
   messages.clear
+  focus_msg = nil
   $curbuf.render do |b|
     q = $curbuf.query(get_cur_view)
     q.sort = Notmuch::SORT_OLDEST_FIRST
@@ -581,7 +583,6 @@ def rb_show(thread_id, msg_id)
       date = Time.at(msg.date).strftime(date_fmt)
       nm_m.start = b.count
       b << "From: %s %s (%s)" % [msg['from'], date, msg.tags]
-      showheaders = VIM::evaluate('g:notmuch_show_headers')
       showheaders.each do |h|
         b << "%s: %s" % [h, m.header[h]]
       end
@@ -613,19 +614,32 @@ def rb_show(thread_id, msg_id)
       end
       b << ""
       nm_m.end = b.count
+      focus_msg = nm_m if !focus_msg and nm_m.tags.include?('unread')
       if !msg_id.empty? and nm_m.message_id == msg_id
-        VIM::command("normal #{nm_m.start}zt")
+        focus_msg = nm_m
       end
     end
     b.delete(b.count)
   end
   messages = $curbuf.messages
   messages.each_with_index do |msg, i|
-    fold_message(msg)
     VIM::command("syntax region nmShowMsg#{i}Desc start='\\%%%il' end='\\%%%il' contains=@nmShowMsgDesc" % [msg.start, msg.start + 1])
     VIM::command("syntax region nmShowMsg#{i}Head start='\\%%%il' end='\\%%%il' contains=@nmShowMsgHead" % [msg.start + 1, msg.full_header_start])
-    VIM::command("syntax region nmShowMsg#{i}Body start='\\%%%il' end='\\%%%dl' contains=@nmShowMsgBody" % [msg.body_start, msg.end])
+    VIM::command("syntax region nmShowMsg#{i}Body start='\\%%%il' end='\\%%%dl' contains=@nmShowMsgBody" % [msg.body_start, msg.end - 1])
+
+    fold_message(msg, show_full_headers)
+
+    if msg.tags.include?('unread')
+      VIM::command("normal #{msg.start}G")
+      VIM::command("foldopen")
+    end
   end
+  focus_msg = messages[-1] if !focus_msg
+  VIM::command("normal #{focus_msg.start}G")
+  VIM::command("foldopen")
+  scrolloff = VIM::evaluate("&scrolloff")
+  VIM::command("normal #{scrolloff}j")
+  VIM::command("normal zt")
 end
 
 def rb_search_show_thread(mode)
