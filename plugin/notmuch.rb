@@ -290,7 +290,7 @@ def rb_compose_send(text, fname)
 
   files.each do |f|
     vim_puts("Attaching file #{f}")
-    nm.add_file(f)
+    nm.add_file(File.expand_path(f))
   end
 
   if attachment
