@@ -39,6 +39,12 @@ def vim_puts(s)
   VIM::command("echo '#{s.to_s}'")
 end
 
+def vim_err(s)
+  VIM::command("echohl ErrorMsg")
+  VIM::command("echomsg '#{s.to_s}'")
+  VIM::command("echohl NONE")
+end
+
 def vim_p(s)
   VIM::command("echo '#{s.inspect}'")
 end

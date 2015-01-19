@@ -111,10 +111,19 @@ function! s:compose_send()
 	let b:compose_done = 1
 	let fname = expand('%')
 	let lines = getline(7, '$')
+	let failed = 0
 
-	ruby rb_compose_send(VIM::evaluate('lines'), VIM::evaluate('fname'))
-
-	call s:kill_this_buffer()
+ruby << EOF
+	begin
+		rb_compose_send(VIM::evaluate('lines'), VIM::evaluate('fname'))
+	rescue Exception => e
+		VIM::command("let failed = 1")
+		vim_err("Sending failed. Error message was: #{e.message}")
+	end
+EOF
+	if failed == 0
+		call s:kill_this_buffer()
+	endif
 endfunction
 
 function! s:show_prev_msg()
