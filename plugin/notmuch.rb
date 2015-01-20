@@ -298,10 +298,6 @@ def rb_compose_send(text, fname)
     # 'Attach'.  We want to do this because we don't really want
     # those to be part of the header.
     nm.header.fields.delete(attachment)
-    # Force a multipart message.  I actually think this might be
-    # a bug in the mail ruby gem but..
-    nm.text_part = Mail::Part.new(nm.body)
-    nm.html_part = Mail::Part.new(nm.body)
   end
 
   del_method = VIM::evaluate('g:notmuch_sendmail_method').to_sym
