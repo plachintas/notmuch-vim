@@ -167,6 +167,7 @@ the location of the binary:
 		\ 'location': '/usr/bin/exim',
 		\ }
 <
+The default sendmail method also accepts the 'location' param.
 
 						*g:notmuch_date_format*
 
@@ -190,12 +191,10 @@ If you want to count the threads instead of the messages in the folder view:
 <
 
 						*g:notmuch_reader*
-						*g:notmuch_sendmail*
 
-You can also configure your externail mail reader and sendemail program:
+You can also configure your external mail reader:
 >
 	let g:notmuch_reader = 'mutt -f %s'
-	let g:notmuch_sendmail = 'sendmail'
 <
 
 You can also configure what probram is used to view attachments:
