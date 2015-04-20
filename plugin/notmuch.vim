@@ -73,7 +73,6 @@ let s:notmuch_sendmail_param_default = {
 let s:notmuch_date_format_default = '%d.%m.%y'
 let s:notmuch_datetime_format_default = '%d.%m.%y %H:%M:%S'
 let s:notmuch_reader_default = 'mutt -f %s'
-let s:notmuch_sendmail_default = 'sendmail'
 let s:notmuch_view_attachment_default = 'xdg-open'
 let s:notmuch_attachment_tmpdir_default = '~/.notmuch/tmp'
 let s:notmuch_save_sent_locally_default = 1
@@ -416,10 +415,6 @@ function! s:set_defaults()
 
 	if !exists('g:notmuch_reader')
 		let g:notmuch_reader = s:notmuch_reader_default
-	endif
-
-	if !exists('g:notmuch_sendmail')
-		let g:notmuch_sendmail = s:notmuch_sendmail_default
 	endif
 
 	if !exists('g:notmuch_attachment_tmpdir')
