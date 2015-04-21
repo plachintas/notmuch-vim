@@ -78,6 +78,7 @@ let s:notmuch_attachment_tmpdir_default = '~/.notmuch/tmp'
 let s:notmuch_save_sent_locally_default = 1
 let s:notmuch_save_sent_mailbox_default = 'Sent'
 let s:notmuch_folders_count_threads_default = 0
+let s:notmuch_folders_count_unreads_default = 0
 let s:notmuch_compose_start_insert_default = 0
 let s:notmuch_show_folded_full_headers_default = 1
 let s:notmuch_show_folded_threads_default = 1
@@ -427,6 +428,10 @@ function! s:set_defaults()
 
 	if !exists('g:notmuch_folders_count_threads')
 		let g:notmuch_folders_count_threads = s:notmuch_folders_count_threads_default
+	endif
+
+	if !exists('g:notmuch_folders_count_unreads')
+		let g:notmuch_folders_count_unreads = s:notmuch_folders_count_unreads_default
 	endif
 
 	if !exists('g:notmuch_compose_start_insert')
