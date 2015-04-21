@@ -190,6 +190,13 @@ If you want to count the threads instead of the messages in the folder view:
 	let g:notmuch_folders_count_threads = 0
 <
 
+						*g:notmuch_folders_count_unreads*
+
+You can display the number of unread messages in each folder with:
+>
+	let g:notmuch_folders_count_unreads = 1
+<
+
 						*g:notmuch_reader*
 
 You can also configure your external mail reader:
