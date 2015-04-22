@@ -205,7 +205,7 @@ def folders_render()
         $exclude_tags.each { |t|
           u.add_tag_exclude(t)
         }
-        ucount = u.count_messages
+        ucount = count_threads ? u.count_threads : u.count_messages
         b << "%9d (%3d) %-#{longest_name + 1}s (%s)" % [count, ucount, name, search]
       else
         b << "%9d %-#{longest_name + 1}s (%s)" % [count, name, search]
