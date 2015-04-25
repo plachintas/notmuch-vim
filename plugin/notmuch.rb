@@ -571,8 +571,10 @@ def rb_show(thread_id, msg_id)
     msgs.each do |msg|
       m = Mail.read(msg.filename)
       enc = false
+      mime = false
       if gpg
-        enc = m.encrypted?
+        mime = Mail::Gpg::encrypted_mime?(m)
+        enc = mime || m.encrypted?
         if enc
           m = m.decrypt(:password => "") # GPG2 doesn't need pass
         end
@@ -589,7 +591,7 @@ def rb_show(thread_id, msg_id)
       end
       if gpg
         if enc
-          b << "Encryption: GPG"
+          b << "Encryption: %s" % [mime ? "PGP/Mime" : "Inline"]
         end
         if m.signed?
           verified = m.verify
