@@ -588,7 +588,16 @@ def rb_show(thread_id, msg_id)
         b << "%s: %s" % [h, m.header[h]]
       end
       if gpg
-        b << "Encryption: %s" % [enc ? "GPG" : "None"]
+        if enc
+          b << "Encryption: GPG"
+        end
+        if m.signed?
+          verified = m.verify
+          b << "Signature: %s" % [verified.signature_valid? ? "Valid" : "Invalid"]
+          if verified.signature_valid?
+            b << "Signed by: %s" % [verified.signatures.map{|sig| sig.from}.join(", ")]
+          end
+        end
       end
       nm_m.full_header_start = b.count
       if show_full_headers
