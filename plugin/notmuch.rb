@@ -183,6 +183,7 @@ def folders_render()
   $curbuf.render do |b|
     folders = VIM::evaluate('g:notmuch_folders')
     count_threads = VIM::evaluate('g:notmuch_folders_count_threads') == 1
+    display_unread = VIM::evaluate('g:notmuch_folders_display_unread_count') == 1
     $searches.clear
     longest_name = 0
     folders.each do |name, search|
@@ -199,6 +200,13 @@ def folders_render()
       count = count_threads ? q.count_threads : q.count_messages
       if name == ''
         b << ""
+      elsif display_unread
+        u = $curbuf.query("(%s) and tag:unread" % [search])
+        $exclude_tags.each { |t|
+          u.add_tag_exclude(t)
+        }
+        ucount = count_threads ? u.count_threads : u.count_messages
+        b << "%9d (%3d) %-#{longest_name + 1}s (%s)" % [count, ucount, name, search]
       else
         b << "%9d %-#{longest_name + 1}s (%s)" % [count, name, search]
       end
