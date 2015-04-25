@@ -594,10 +594,14 @@ def rb_show(thread_id, msg_id)
           b << "Encryption: %s" % [mime ? "PGP/Mime" : "Inline"]
         end
         if m.signed?
-          verified = m.verify
-          b << "Signature: %s" % [verified.signature_valid? ? "Valid" : "Invalid"]
-          if verified.signature_valid?
-            b << "Signed by: %s" % [verified.signatures.map{|sig| sig.from}.join(", ")]
+          begin
+            verified = m.verify
+            b << "Signature: %s" % [valid && verified.signature_valid? ? "Valid" : "Invalid"]
+            if verified.signature_valid?
+              b << "Signed by: %s" % [verified.signatures.map{|sig| sig.from}.join(", ")]
+            end
+          rescue Exception
+            b << "Signature: Error"
           end
         end
       end
