@@ -83,6 +83,7 @@ let s:notmuch_compose_start_insert_default = 0
 let s:notmuch_show_folded_full_headers_default = 1
 let s:notmuch_show_folded_threads_default = 1
 let s:notmuch_open_uri_default = 'xdg-open'
+let s:notmuch_gpg_enable_default = 0
 
 function! s:new_file_buffer(type, fname)
 	exec printf('edit %s', a:fname)
@@ -476,6 +477,10 @@ function! s:set_defaults()
 
 	if !exists('g:notmuch_sendmail_param')
 		let g:notmuch_sendmail_param = s:notmuch_sendmail_param_default
+	endif
+
+	if !exists('g:notmuch_gpg_enable')
+		let g:notmuch_gpg_enable = s:notmuch_gpg_enable_default
 	endif
 
 endfunction

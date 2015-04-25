@@ -3,6 +3,9 @@ require 'rubygems'
 require 'tempfile'
 require 'socket'
 require 'mail'
+if VIM::evaluate('g:notmuch_gpg_enable') == 1
+  require 'mail-gpg'
+end
 
 $db_name = nil
 $all_emails = []
@@ -555,6 +558,7 @@ def rb_show(thread_id, msg_id)
   show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers') == 1
   # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
   showheaders = VIM::evaluate('g:notmuch_show_headers')
+  gpg = VIM::evaluate('g:notmuch_gpg_enable')
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
@@ -566,6 +570,13 @@ def rb_show(thread_id, msg_id)
     msgs = q.search_messages
     msgs.each do |msg|
       m = Mail.read(msg.filename)
+      enc = false
+      if gpg
+        enc = m.encrypted?
+        if enc
+          m = m.decrypt(:password => "") # GPG2 doesn't need pass
+        end
+      end
       part = m.find_first_text
       nm_m = Message.new(msg, m)
       messages << nm_m
@@ -575,6 +586,9 @@ def rb_show(thread_id, msg_id)
       b << "From: %s %s (%s)" % [msg['from'], date, msg.tags]
       showheaders.each do |h|
         b << "%s: %s" % [h, m.header[h]]
+      end
+      if gpg
+        b << "Encryption: %s" % [enc ? "GPG" : "None"]
       end
       nm_m.full_header_start = b.count
       if show_full_headers
