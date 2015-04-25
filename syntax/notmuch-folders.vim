@@ -1,6 +1,6 @@
 " notmuch folders mode syntax file
 
-if g:notmuch_folders_count_unreads == 0
+if g:notmuch_folders_display_unread_count == 0
     syntax region nmFoldersCount     start='^' end='\%10v'
     syntax region nmFoldersName      start='\%11v' end='  ('me=e-1
 else
