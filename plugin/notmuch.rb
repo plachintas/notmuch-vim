@@ -554,6 +554,13 @@ def fold_message(msg, fold_headers)
   fold_range(msg.start, msg.end-1)
 end
 
+def gpg_passfunc(obj, uid_hint, passphrase_info, prev_was_bad, fd)
+  pass = VIM::command("call inputsecret('Pass for %s%s: ')" % [uid_hint, prev_was_bad ? ' (X)' : ''])
+  io = IO.for_fd(fd, 'w')
+  io.puts pass
+  io.flush
+end
+
 def rb_show(thread_id, msg_id)
   show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers') == 1
   # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
@@ -572,11 +579,24 @@ def rb_show(thread_id, msg_id)
       m = Mail.read(msg.filename)
       enc = false
       mime = false
+      encfail = false
       if gpg
         mime = Mail::Gpg::encrypted_mime?(m)
         enc = mime || m.encrypted?
         if enc
-          m = m.decrypt(:password => "") # GPG2 doesn't need pass
+          mail = m
+          begin
+            if GPGME::Engine.info.first.version.first == '1' # GPG 1.x
+              m = m.decrypt(:passphrase_callback => method(:gpg_passfunc))
+            elsif GPGME::Engine.info.first.version[2] == '1' # GPG 2.1
+              m = m.decrypt(:passphrase_callback => method(:gpg_passfunc), :pinentry_mode => GPGME::PINENTRY_MODE_LOOPBACK)
+            else # GPG 2.0
+              # TODO Hack to make it work with GPG 2.0
+            end
+          rescue Exception
+            m = mail
+            encfail = true
+          end
         end
       end
       part = m.find_first_text
@@ -590,6 +610,14 @@ def rb_show(thread_id, msg_id)
         b << "%s: %s" % [h, m.header[h]]
       end
       if gpg
+        if encfail
+          b << "Encryption: Error"
+          b << ""
+          nm_m.full_header_start = nm_m.full_header_end = b.count
+          nm_m.body_start = b.count
+          nm_m.end = b.count
+          next
+        end
         if enc
           b << "Encryption: %s" % [mime ? "PGP/Mime" : "Inline"]
         end
