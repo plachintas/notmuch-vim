@@ -587,9 +587,9 @@ def rb_show(thread_id, msg_id)
           mail = m
           begin
             if GPGME::Engine.info.first.version.first == '1' # GPG 1.x
-              m = m.decrypt(:passphrase_callback => method(:gpg_passfunc))
+              m = m.decrypt(:verify => true, :passphrase_callback => method(:gpg_passfunc))
             elsif GPGME::Engine.info.first.version[2] == '1' # GPG 2.1
-              m = m.decrypt(:passphrase_callback => method(:gpg_passfunc), :pinentry_mode => GPGME::PINENTRY_MODE_LOOPBACK)
+              m = m.decrypt(:verify => true, :passphrase_callback => method(:gpg_passfunc), :pinentry_mode => GPGME::PINENTRY_MODE_LOOPBACK)
             else # GPG 2.0
               # TODO Hack to make it work with GPG 2.0
             end
@@ -621,10 +621,15 @@ def rb_show(thread_id, msg_id)
         if enc
           b << "Encryption: %s" % [mime ? "PGP/Mime" : "Inline"]
         end
-        if m.signed?
+        if (enc && m.signatures.length != 0) || m.signed?
           begin
-            verified = m.verify
-            b << "Signature: %s" % [valid && verified.signature_valid? ? "Valid" : "Invalid"]
+            verified = nil
+            if enc
+              verified = m
+            else
+              verified = m.verify
+            end
+            b << "Signature: %s" % [verified.signature_valid? ? "Valid" : "Invalid"]
             if verified.signature_valid?
               b << "Signed by: %s" % [verified.signatures.map{|sig| sig.from}.join(", ")]
             end
