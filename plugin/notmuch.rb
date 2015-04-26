@@ -566,6 +566,7 @@ def rb_show(thread_id, msg_id)
   # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
   showheaders = VIM::evaluate('g:notmuch_show_headers')
   gpg = VIM::evaluate('g:notmuch_gpg_enable')
+  gpgpin = VIM::evaluate('g:notmuch_gpg_pinentry')
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
@@ -586,12 +587,12 @@ def rb_show(thread_id, msg_id)
         if enc
           mail = m
           begin
-            if GPGME::Engine.info.first.version.first == '1' # GPG 1.x
-              m = m.decrypt(:verify => true, :passphrase_callback => method(:gpg_passfunc))
-            elsif GPGME::Engine.info.first.version[2] == '1' # GPG 2.1
+            if gpgpin
+              m = m.decrypt(:verify => true)
+              VIM::command("silent! reset")
+              VIM::command("redraw!")
+            else
               m = m.decrypt(:verify => true, :passphrase_callback => method(:gpg_passfunc), :pinentry_mode => GPGME::PINENTRY_MODE_LOOPBACK)
-            else # GPG 2.0
-              # TODO Hack to make it work with GPG 2.0
             end
           rescue Exception
             m = mail
