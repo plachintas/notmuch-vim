@@ -246,4 +246,21 @@ Configure which folder to save sent email to:
 >
 	let g:notmuch_save_sent_mailbox = 'Sent'
 <
+
+Enable gnupg abilities:
+
+						*g:notmuch_gpg_enable*
+>
+	let g:notmuch_gpg_enable = 0
+<
+With gpg enabled, the signatures of received mails will be checked and
+encrypted mail will be opened if possible. To query keys passphrase, two
+methods are available : an input in vim status line (default) or the
+gpg-agent pinentry.
+
+						*g:notmuch_gpg_pinentry*
+>
+	let g:notmuch_gpg_pinentry = 0
+<
+
 vim:tw=78:ts=8:noet:ft=help:
