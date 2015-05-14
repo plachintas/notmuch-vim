@@ -3,6 +3,9 @@ require 'rubygems'
 require 'tempfile'
 require 'socket'
 require 'mail'
+if VIM::evaluate('g:notmuch_gpg_enable') == 1
+  require 'mail-gpg'
+end
 
 $db_name = nil
 $all_emails = []
@@ -551,10 +554,19 @@ def fold_message(msg, fold_headers)
   fold_range(msg.start, msg.end-1)
 end
 
+def gpg_passfunc(obj, uid_hint, passphrase_info, prev_was_bad, fd)
+  pass = VIM::command("call inputsecret('Pass for %s%s: ')" % [uid_hint, prev_was_bad ? ' (X)' : ''])
+  io = IO.for_fd(fd, 'w')
+  io.puts pass
+  io.flush
+end
+
 def rb_show(thread_id, msg_id)
   show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers') == 1
   # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
   showheaders = VIM::evaluate('g:notmuch_show_headers')
+  gpg = VIM::evaluate('g:notmuch_gpg_enable')
+  gpgpin = VIM::evaluate('g:notmuch_gpg_pinentry')
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
@@ -566,6 +578,28 @@ def rb_show(thread_id, msg_id)
     msgs = q.search_messages
     msgs.each do |msg|
       m = Mail.read(msg.filename)
+      enc = false
+      mime = false
+      encfail = false
+      if gpg
+        mime = Mail::Gpg::encrypted_mime?(m)
+        enc = mime || m.encrypted?
+        if enc
+          mail = m
+          begin
+            if gpgpin
+              m = m.decrypt(:verify => true)
+              VIM::command("silent! reset")
+              VIM::command("redraw!")
+            else
+              m = m.decrypt(:verify => true, :passphrase_callback => method(:gpg_passfunc), :pinentry_mode => GPGME::PINENTRY_MODE_LOOPBACK)
+            end
+          rescue Exception
+            m = mail
+            encfail = true
+          end
+        end
+      end
       part = m.find_first_text
       nm_m = Message.new(msg, m)
       messages << nm_m
@@ -575,6 +609,35 @@ def rb_show(thread_id, msg_id)
       b << "From: %s %s (%s)" % [msg['from'], date, msg.tags]
       showheaders.each do |h|
         b << "%s: %s" % [h, m.header[h]]
+      end
+      if gpg
+        if encfail
+          b << "Encryption: Error"
+          b << ""
+          nm_m.full_header_start = nm_m.full_header_end = b.count
+          nm_m.body_start = b.count
+          nm_m.end = b.count
+          next
+        end
+        if enc
+          b << "Encryption: %s" % [mime ? "PGP/Mime" : "Inline"]
+        end
+        if (enc && m.signatures.length != 0) || m.signed?
+          begin
+            verified = nil
+            if enc
+              verified = m
+            else
+              verified = m.verify
+            end
+            b << "Signature: %s" % [verified.signature_valid? ? "Valid" : "Invalid"]
+            if verified.signature_valid?
+              b << "Signed by: %s" % [verified.signatures.map{|sig| sig.from}.join(", ")]
+            end
+          rescue Exception
+            b << "Signature: Error"
+          end
+        end
       end
       nm_m.full_header_start = b.count
       if show_full_headers
