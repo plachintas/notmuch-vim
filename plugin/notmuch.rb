@@ -565,8 +565,8 @@ def rb_show(thread_id, msg_id)
   show_full_headers = VIM::evaluate('g:notmuch_show_folded_full_headers') == 1
   # show_threads_folded = VIM::evaluate('g:notmuch_show_folded_threads') == 1
   showheaders = VIM::evaluate('g:notmuch_show_headers')
-  gpg = VIM::evaluate('g:notmuch_gpg_enable')
-  gpgpin = VIM::evaluate('g:notmuch_gpg_pinentry')
+  gpg = VIM::evaluate('g:notmuch_gpg_enable') == 1
+  gpgpin = VIM::evaluate('g:notmuch_gpg_pinentry') == 1
 
   $curbuf.cur_thread = thread_id
   messages = $curbuf.messages
