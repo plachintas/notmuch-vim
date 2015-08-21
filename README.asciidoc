@@ -67,6 +67,10 @@ Once you have gem, run:
 In some systems gems are installed on a per-user basis by default, so make sure
 you are running as the same user as the one that installed them.
 
+If you're planning to use PGP, you'll also need the 'mail-gpg' gem. Run:
+
+ % gem install mail-gem
+
 == Running ==
 
 Simple:
