@@ -302,10 +302,20 @@ function! s:show_next_thread()
 	endif
 endfunction
 
+function! s:show_prev_thread()
+    call s:kill_this_buffer()
+    if line('.') != 1
+        norm k
+        call s:search_show_thread(0)
+    else
+        echo 'No more messages.'
+    endif
+endfunction
+
 function! s:kill_this_buffer()
 ruby << EOF
 	$curbuf.close
-	VIM::command("bdelete!")
+	VIM::command("Bdelete!")
 EOF
 endfunction
 
