@@ -315,7 +315,7 @@ endfunction
 function! s:kill_this_buffer()
 ruby << EOF
 	$curbuf.close
-	VIM::command("Bdelete!")
+	VIM::command("Bwipeout!")
 EOF
 endfunction
 
