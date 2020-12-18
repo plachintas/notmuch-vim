@@ -10,6 +10,7 @@ let g:loaded_notmuch = "yep"
 
 let g:notmuch_folders_maps = {
 	\ '<Enter>':	'folders_show_search()',
+	\ 'q':		'kill_this_buffer()',
 	\ 's':		'folders_search_prompt()',
 	\ 'A':		'folders_tag_all("-inbox -unread")',
 	\ '=':		'folders_refresh()',
